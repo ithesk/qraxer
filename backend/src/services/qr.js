@@ -11,8 +11,8 @@ class QRService {
   constructor() {
     this.secret = config.qr.hmacSecret;
     this.expirationMinutes = config.qr.expirationMinutes;
-    // En desarrollo, permitir códigos simples sin firma
-    this.allowSimpleCodes = config.nodeEnv === 'development';
+    // Permitir códigos simples en desarrollo o si ALLOW_SIMPLE_QR=true
+    this.allowSimpleCodes = config.nodeEnv === 'development' || config.qr.allowSimpleCodes;
   }
 
   /**

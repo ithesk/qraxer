@@ -42,6 +42,7 @@ export const config = {
   qr: {
     hmacSecret: required('QR_HMAC_SECRET'),
     expirationMinutes: parseInt(optional('QR_EXPIRATION_MINUTES', '60'), 10),
+    allowSimpleCodes: optional('ALLOW_SIMPLE_QR', 'false') === 'true',
   },
 
   // CORS

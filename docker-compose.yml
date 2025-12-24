@@ -18,6 +18,7 @@ services:
       - ODOO_ADMIN_PASSWORD=${ODOO_ADMIN_PASSWORD}
       - QR_HMAC_SECRET=${QR_HMAC_SECRET}
       - QR_EXPIRATION_MINUTES=${QR_EXPIRATION_MINUTES:-60}
+      - ALLOW_SIMPLE_QR=${ALLOW_SIMPLE_QR:-true}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
     networks:
       - qraxer-network
