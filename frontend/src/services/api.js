@@ -10,25 +10,25 @@ class ApiService {
   }
 
   loadTokens() {
-    this.accessToken = sessionStorage.getItem('accessToken');
-    this.refreshToken = sessionStorage.getItem('refreshToken');
+    this.accessToken = localStorage.getItem('accessToken');
+    this.refreshToken = localStorage.getItem('refreshToken');
   }
 
   saveTokens(accessToken, refreshToken) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
-    sessionStorage.setItem('accessToken', accessToken);
+    localStorage.setItem('accessToken', accessToken);
     if (refreshToken) {
-      sessionStorage.setItem('refreshToken', refreshToken);
+      localStorage.setItem('refreshToken', refreshToken);
     }
   }
 
   clearTokens() {
     this.accessToken = null;
     this.refreshToken = null;
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('refreshToken');
-    sessionStorage.removeItem('user');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('user');
   }
 
   isAuthenticated() {
@@ -97,7 +97,7 @@ class ApiService {
     }
 
     this.saveTokens(data.accessToken, data.refreshToken);
-    sessionStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem('user', JSON.stringify(data.user));
 
     return data.user;
   }
@@ -142,7 +142,7 @@ class ApiService {
   }
 
   getUser() {
-    const user = sessionStorage.getItem('user');
+    const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   }
 }

@@ -29,13 +29,36 @@ export default function Scanner({ onScan, onLogout }) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [hasPermission, setHasPermission] = useState(null);
   const html5QrcodeRef = useRef(null);
 
+  // Verificar permisos de cámara al montar
   useEffect(() => {
+    checkCameraPermission();
     return () => {
       stopScanner();
     };
   }, []);
+
+  const checkCameraPermission = async () => {
+    try {
+      const result = await navigator.permissions.query({ name: 'camera' });
+      setHasPermission(result.state === 'granted');
+
+      // Auto-iniciar si ya tiene permiso y el usuario lo usó antes
+      if (result.state === 'granted' && localStorage.getItem('autoStartScanner') === 'true') {
+        setScanning(true);
+      }
+
+      // Escuchar cambios en el permiso
+      result.onchange = () => {
+        setHasPermission(result.state === 'granted');
+      };
+    } catch (e) {
+      // Permissions API no soportada
+      setHasPermission(null);
+    }
+  };
 
   // Iniciar scanner después de que el elemento esté en el DOM
   useEffect(() => {
@@ -57,10 +80,15 @@ export default function Scanner({ onScan, onLogout }) {
         handleQrSuccess,
         () => {}
       );
+
+      // Guardar que el scanner se inició exitosamente
+      localStorage.setItem('autoStartScanner', 'true');
+      setHasPermission(true);
     } catch (err) {
       console.error('Camera error:', err);
       setError('No se pudo acceder a la camara. Verifica los permisos.');
       setScanning(false);
+      localStorage.removeItem('autoStartScanner');
     }
   };
 

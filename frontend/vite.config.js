@@ -52,6 +52,8 @@ export default defineConfig({
         categories: ['business', 'utilities', 'productivity'],
         lang: 'es',
         dir: 'ltr',
+        permissions: ['camera'],
+        capture_links: 'none',
         icons: [
           {
             src: 'pwa-192x192.png',
