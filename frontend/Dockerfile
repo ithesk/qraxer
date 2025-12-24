@@ -3,22 +3,22 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
-# Verificar que node y npm estén disponibles
-RUN node --version && npm --version
+# Instalar dependencias del sistema para sharp y otras libs nativas
+RUN apk add --no-cache python3 make g++ vips-dev
 
 # Copiar package files
 COPY package.json package-lock.json ./
 
-# Instalar dependencias
-RUN npm ci
+# Instalar TODAS las dependencias (incluyendo devDependencies para el build)
+RUN npm ci --include=dev
 
 # Copiar código fuente
 COPY index.html vite.config.js ./
 COPY public ./public
 COPY src ./src
 
-# Build de producción usando npx para asegurar que vite se encuentra
-RUN npx vite build
+# Build de producción
+RUN npm run build
 
 # Production stage con nginx
 FROM nginx:alpine
