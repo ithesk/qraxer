@@ -86,7 +86,7 @@ export default function Scanner({ onScan, onLogout }) {
       setHasPermission(true);
     } catch (err) {
       console.error('Camera error:', err);
-      setError('No se pudo acceder a la camara. Verifica los permisos.');
+      setError('No se pudo acceder a la cámara. Verifica los permisos.');
       setScanning(false);
       localStorage.removeItem('autoStartScanner');
     }
@@ -111,15 +111,29 @@ export default function Scanner({ onScan, onLogout }) {
     setScanning(false);
   };
 
+  // Vibración para feedback táctil
+  const vibrate = (pattern) => {
+    if (navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  };
+
   const handleQrSuccess = async (decodedText) => {
+    // Vibración corta al detectar QR
+    vibrate([50, 30, 50]);
+
     await stopScanner();
     setLoading(true);
     setError('');
 
     try {
       const data = await api.scanQR(decodedText);
+      // Vibración de éxito
+      vibrate([100]);
       onScan(data, decodedText);
     } catch (err) {
+      // Vibración de error (más larga)
+      vibrate([200, 100, 200]);
       setError(err.message);
       setLoading(false);
     }
@@ -188,7 +202,7 @@ export default function Scanner({ onScan, onLogout }) {
               textAlign: 'center',
               fontSize: '15px'
             }}>
-              Toca el boton para abrir la camara
+              Toca el botón para abrir la cámara
             </p>
           </div>
         ) : loading ? (
@@ -225,7 +239,7 @@ export default function Scanner({ onScan, onLogout }) {
               color: 'var(--text-muted)',
               fontSize: '14px'
             }}>
-              Obteniendo informacion
+              Obteniendo información
             </p>
           </div>
         ) : (
@@ -255,7 +269,7 @@ export default function Scanner({ onScan, onLogout }) {
                 color: 'var(--text-secondary)',
                 fontSize: '14px'
               }}>
-                Apunta la camara al codigo QR
+                Apunta la cámara al código QR
               </p>
 
               <button
@@ -281,7 +295,7 @@ export default function Scanner({ onScan, onLogout }) {
           }}
         >
           <LogoutIcon />
-          <span>Cerrar sesion</span>
+          <span>Cerrar sesión</span>
         </button>
       </div>
     </div>

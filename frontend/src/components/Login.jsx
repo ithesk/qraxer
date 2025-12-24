@@ -103,13 +103,13 @@ export default function Login({ onSuccess }) {
         </div>
 
         <div className="form-group">
-          <label htmlFor="password">Contrasena</label>
+          <label htmlFor="password">Contraseña</label>
           <input
             id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Tu contrasena"
+            placeholder="Tu contraseña"
             autoComplete="current-password"
             enterKeyHint="go"
             required
