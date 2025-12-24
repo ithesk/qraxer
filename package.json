@@ -1,0 +1,11 @@
+{
+  "name": "qraxer",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "dev:backend": "pnpm --filter qraxer-api run dev",
+    "dev:frontend": "pnpm --filter qraxer-pwa run dev",
+    "install:all": "pnpm install",
+    "build": "pnpm --filter qraxer-pwa run build"
+  }
+}
