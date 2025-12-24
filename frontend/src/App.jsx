@@ -5,6 +5,8 @@ import Scanner from './components/Scanner';
 import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
 
+const APP_VERSION = '1.1.0';
+
 const VIEWS = {
   LOGIN: 'login',
   SCANNER: 'scanner',
@@ -110,6 +112,16 @@ export default function App() {
           <Result result={result} onNewScan={handleNewScan} />
         )}
       </main>
+
+      <footer style={{
+        textAlign: 'center',
+        padding: '8px',
+        fontSize: '11px',
+        color: 'var(--text-muted)',
+        opacity: 0.6
+      }}>
+        v{APP_VERSION}
+      </footer>
     </>
   );
 }
