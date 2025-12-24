@@ -1,4 +1,6 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// En producción (Vercel), la API está en el mismo dominio bajo /api
+// En desarrollo, usa el backend local en puerto 3001
+const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
 class ApiService {
   constructor() {
