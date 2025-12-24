@@ -3,17 +3,22 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Verificar que node y npm estén disponibles
+RUN node --version && npm --version
+
 # Copiar package files
 COPY package.json package-lock.json ./
 
 # Instalar dependencias
 RUN npm ci
 
-# Copiar código fuente (excluyendo node_modules via .dockerignore)
-COPY . .
+# Copiar código fuente
+COPY index.html vite.config.js ./
+COPY public ./public
+COPY src ./src
 
-# Build de producción
-RUN npm run build
+# Build de producción usando npx para asegurar que vite se encuentra
+RUN npx vite build
 
 # Production stage con nginx
 FROM nginx:alpine
