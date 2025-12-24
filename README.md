@@ -34,11 +34,60 @@ qraxer/
 
 ## Requisitos
 
-- Node.js 18+
-- pnpm 8+
+- Node.js 18+ (para desarrollo local)
+- pnpm 8+ (para desarrollo local)
+- Docker y Docker Compose (para produccion)
 - Acceso a instancia de Odoo con modulo `repair`
 
-## Instalacion
+## Despliegue con Docker (Recomendado)
+
+### Opcion 1: Docker Compose
+
+```bash
+# Clonar repositorio
+git clone https://github.com/ithesk/qraxer.git
+cd qraxer
+
+# Configurar variables de entorno
+cp .env.example .env
+# Editar .env con tus credenciales
+
+# Construir y ejecutar
+docker-compose up -d --build
+
+# Ver logs
+docker-compose logs -f
+```
+
+La aplicacion estara disponible en `http://localhost:8080`
+
+### Opcion 2: Portainer Stack
+
+1. En Portainer, ir a **Stacks** > **Add Stack**
+2. Nombre: `qraxer`
+3. En **Repository**, usar:
+   - URL: `https://github.com/ithesk/qraxer`
+   - Compose path: `docker-compose.yml`
+4. En **Environment variables**, agregar:
+   - `JWT_SECRET`: secreto-seguro-para-jwt
+   - `ODOO_URL`: https://tu-instancia.odoo.com
+   - `ODOO_DB`: nombre-base-datos
+   - `PORT`: 8080 (o el puerto deseado)
+5. Click en **Deploy the stack**
+
+### Variables de Entorno
+
+| Variable | Descripcion | Requerido |
+|----------|-------------|-----------|
+| JWT_SECRET | Secreto para firmar tokens JWT | Si |
+| ODOO_URL | URL de la instancia de Odoo | Si |
+| ODOO_DB | Nombre de la base de datos de Odoo | Si |
+| PORT | Puerto donde exponer la app (default: 8080) | No |
+| JWT_EXPIRES_IN | Expiracion del token (default: 7d) | No |
+| QR_HMAC_SECRET | Secreto para firmar QRs | No |
+| QR_EXPIRATION_MINUTES | Minutos de validez del QR (default: 60) | No |
+
+## Instalacion Local (Desarrollo)
 
 ```bash
 # Clonar repositorio
