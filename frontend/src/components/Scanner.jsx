@@ -74,8 +74,13 @@ export default function Scanner({ onScan, onLogout }) {
       await html5QrcodeRef.current.start(
         { facingMode: 'environment' },
         {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
+          fps: 30,                              // Más rápido: 30 escaneos/segundo
+          qrbox: { width: 280, height: 280 },   // Área más grande
+          aspectRatio: 1.0,                     // Cuadrado para mejor detección
+          disableFlip: false,                   // Permitir QR invertidos
+          experimentalFeatures: {
+            useBarCodeDetectorIfSupported: true // Usar API nativa si disponible
+          }
         },
         handleQrSuccess,
         () => {}
