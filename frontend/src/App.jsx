@@ -5,7 +5,7 @@ import Scanner from './components/Scanner';
 import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 
 const VIEWS = {
   LOGIN: 'login',
@@ -14,12 +14,35 @@ const VIEWS = {
   RESULT: 'result',
 };
 
-const UserIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
+// Logo QR icon
+const QRLogoIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="5" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="16" y="5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="5" y="16" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="14" y="14" width="3" height="3" />
+    <rect x="18" y="18" width="3" height="3" />
   </svg>
 );
+
+// User avatar with initials
+const UserAvatar = ({ user }) => {
+  const getInitials = () => {
+    if (user.name) {
+      return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    }
+    return user.username ? user.username[0].toUpperCase() : 'U';
+  };
+
+  return (
+    <div className="user-avatar">
+      {getInitials()}
+    </div>
+  );
+};
 
 export default function App() {
   const [view, setView] = useState(VIEWS.LOGIN);
@@ -76,18 +99,26 @@ export default function App() {
   return (
     <>
       <header className="header">
-        <h1>QRaxer</h1>
-        {user && (
-          <div className="header-subtitle" style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '6px'
-          }}>
-            <UserIcon />
-            <span>{user.name || user.username}</span>
+        <div className="header-content">
+          {/* Left: Logo and App Name */}
+          <div className="header-brand">
+            <div className="header-logo">
+              <QRLogoIcon />
+            </div>
+            <div className="header-titles">
+              <h1 className="header-title">QRaxer</h1>
+              <p className="header-tagline">Escáner de Reparaciones</p>
+            </div>
           </div>
-        )}
+
+          {/* Right: User Info */}
+          {user && (
+            <div className="header-user">
+              <UserAvatar user={user} />
+              <span className="header-user-name">{user.name || user.username}</span>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="container" style={{ flex: 1 }}>
