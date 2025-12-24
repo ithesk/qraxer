@@ -4,12 +4,12 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 # Copiar package files
-COPY package*.json ./
+COPY package.json package-lock.json ./
 
 # Instalar dependencias
-RUN npm install
+RUN npm ci
 
-# Copiar código fuente
+# Copiar código fuente (excluyendo node_modules via .dockerignore)
 COPY . .
 
 # Build de producción
