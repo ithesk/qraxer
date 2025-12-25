@@ -29,23 +29,13 @@ const ArrowIcon = () => (
 );
 
 export default function RecentScans({ refreshKey = 0 }) {
-  const [scans, setScans] = useState(() => {
-    const initial = scanHistory.getScans();
-    console.log('[RecentScans] Initial load:', initial);
-    return initial;
-  });
+  const [scans, setScans] = useState(() => scanHistory.getScans());
 
   useEffect(() => {
-    // Reload scans when refreshKey changes
-    const loadedScans = scanHistory.getScans();
-    console.log('[RecentScans] useEffect load, refreshKey:', refreshKey, 'scans:', loadedScans);
-    setScans(loadedScans);
+    setScans(scanHistory.getScans());
   }, [refreshKey]);
 
-  console.log('[RecentScans] Render, scans.length:', scans.length);
-
   if (scans.length === 0) {
-    console.log('[RecentScans] No scans, returning null');
     return null;
   }
 
