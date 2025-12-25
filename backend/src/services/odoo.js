@@ -1,4 +1,5 @@
 import { config } from '../config/env.js';
+import { AppError } from '../middleware/errorHandler.js';
 
 const DEBUG = config.nodeEnv === 'development';
 
@@ -178,7 +179,7 @@ class OdooClient {
 
     const session = userSessions.get(userId);
     if (!session || !session.sessionId) {
-      throw new Error('Sesión de usuario no encontrada. Inicie sesión nuevamente.');
+      throw new AppError('Sesión de usuario no encontrada. Inicie sesión nuevamente.', 401);
     }
 
     const { result } = await this.jsonRpc('/web/dataset/call_kw', {
@@ -238,7 +239,7 @@ class OdooClient {
 
     const repair = await this.getRepairById(repairId, userId);
     if (!repair) {
-      throw new Error('Reparación no encontrada');
+      throw new AppError('Reparación no encontrada', 404);
     }
 
     const oldState = repair.state;
