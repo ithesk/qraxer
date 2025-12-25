@@ -135,7 +135,7 @@ export default function Result({ result, onNewScan }) {
       </div>
 
       {/* Recent Scans */}
-      <RecentScans refreshKey={refreshKey} />
+      <RecentScans />
 
       {/* Action Button */}
       <div className="bottom-actions" style={{ marginTop: '20px' }}>
