@@ -45,12 +45,27 @@ const CameraIcon = () => (
 );
 
 export default function Result({ result, onNewScan }) {
+  console.log('[Result] Montado con result:', result);
+
   // Show success toast on mount
   useEffect(() => {
     if (result) {
-      toast.success(`${result.repairName} actualizada`);
+      toast.success(`${result.repairName || 'Reparación'} actualizada`);
     }
   }, [result]);
+
+  // Protección contra result incompleto
+  if (!result || !result.repairId) {
+    console.error('[Result] Result inválido:', result);
+    return (
+      <div className="fade-in" style={{ padding: '40px', textAlign: 'center' }}>
+        <p>Error: Datos de resultado no disponibles</p>
+        <button onClick={onNewScan} className="btn-primary btn-large" style={{ marginTop: '20px' }}>
+          Volver a escanear
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in" style={{
@@ -109,16 +124,16 @@ export default function Result({ result, onNewScan }) {
           flexWrap: 'wrap',
           marginBottom: '24px'
         }}>
-          <span className={`state-badge state-${result.oldState}`}>
-            {STATE_LABELS[result.oldState] || result.oldState}
+          <span className={`state-badge state-${result.oldState || 'unknown'}`}>
+            {STATE_LABELS[result.oldState] || result.oldState || '?'}
           </span>
 
           <div style={{ color: 'var(--text-muted)' }}>
             <ArrowRightIcon />
           </div>
 
-          <span className={`state-badge state-${result.newState}`}>
-            {STATE_LABELS[result.newState] || result.newState}
+          <span className={`state-badge state-${result.newState || 'unknown'}`}>
+            {STATE_LABELS[result.newState] || result.newState || '?'}
           </span>
         </div>
 
@@ -130,8 +145,7 @@ export default function Result({ result, onNewScan }) {
           padding: '8px 16px',
           borderRadius: 'var(--radius-full)'
         }}>
-          Reparación #{result.repairId}
-        </p>
+          Reparación #{result.repairId || 'N/A'}</p>
       </div>
 
       {/* Recent Scans */}

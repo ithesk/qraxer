@@ -96,8 +96,10 @@ export default function App() {
   };
 
   const handleUpdate = (updateResult) => {
+    console.log('[App] handleUpdate recibido:', updateResult);
     setResult(updateResult);
     setView(VIEWS.RESULT);
+    console.log('[App] Vista cambiada a RESULT');
   };
 
   const handleNewScan = () => {
