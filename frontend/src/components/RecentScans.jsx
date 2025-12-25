@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { scanHistory } from '../services/scanHistory';
 
 const STATE_LABELS = {
@@ -27,8 +28,14 @@ const ArrowIcon = () => (
   </svg>
 );
 
-export default function RecentScans() {
-  const scans = scanHistory.getScans();
+export default function RecentScans({ refreshKey }) {
+  const [scans, setScans] = useState([]);
+
+  useEffect(() => {
+    // Load scans on mount and when refreshKey changes
+    const loadedScans = scanHistory.getScans();
+    setScans(loadedScans);
+  }, [refreshKey]);
 
   if (scans.length === 0) {
     return null;

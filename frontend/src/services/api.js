@@ -153,7 +153,17 @@ class ApiService {
   async checkConnection() {
     const start = Date.now();
     try {
-      const response = await fetch(`${API_URL.replace('/api', '')}/health`, {
+      // Build health URL - handle both relative and absolute URLs
+      let healthUrl;
+      if (API_URL.startsWith('/')) {
+        // Relative URL in production
+        healthUrl = '/health';
+      } else {
+        // Absolute URL in development
+        healthUrl = API_URL.replace('/api', '/health');
+      }
+
+      const response = await fetch(healthUrl, {
         method: 'GET',
         cache: 'no-store',
       });

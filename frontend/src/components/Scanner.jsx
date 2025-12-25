@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
+import { toast } from './Toast';
 
 const CameraIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -180,6 +181,7 @@ export default function Scanner({ onScan, onLogout }) {
       // Vibración de error (más larga)
       vibrate([200, 100, 200]);
       setError(err.message);
+      toast.error(err.message);
       setLoading(false);
     }
   };

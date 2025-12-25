@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { scanHistory } from '../services/scanHistory';
 import ConnectionIndicator from './ConnectionIndicator';
 import RecentScans from './RecentScans';
+import { toast } from './Toast';
 
 const STATE_LABELS = {
   draft: 'Borrador',
@@ -46,6 +47,8 @@ const CameraIcon = () => (
 );
 
 export default function Result({ result, onNewScan }) {
+  const [refreshKey, setRefreshKey] = useState(0);
+
   // Save scan to history on mount
   useEffect(() => {
     if (result) {
@@ -55,6 +58,10 @@ export default function Result({ result, onNewScan }) {
         oldState: result.oldState,
         newState: result.newState,
       });
+      // Trigger refresh of RecentScans
+      setRefreshKey(prev => prev + 1);
+      // Show success toast
+      toast.success(`Reparación #${result.repairId} actualizada`);
     }
   }, [result]);
 
@@ -146,7 +153,7 @@ export default function Result({ result, onNewScan }) {
       </div>
 
       {/* Recent Scans */}
-      <RecentScans />
+      <RecentScans refreshKey={refreshKey} />
 
       {/* Action Button */}
       <div className="bottom-actions" style={{ marginTop: '20px' }}>

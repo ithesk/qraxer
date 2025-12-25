@@ -4,8 +4,9 @@ import Login from './components/Login';
 import Scanner from './components/Scanner';
 import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
+import ToastContainer from './components/Toast';
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 
 const VIEWS = {
   LOGIN: 'login',
@@ -98,6 +99,7 @@ export default function App() {
 
   return (
     <>
+      <ToastContainer />
       <header className="header">
         <div className="header-content">
           {/* Left: Logo and App Name */}
