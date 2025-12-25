@@ -5,8 +5,9 @@ import Scanner from './components/Scanner';
 import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
 import ToastContainer from './components/Toast';
+import UpdatePrompt from './components/UpdatePrompt';
 
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 
 const VIEWS = {
   LOGIN: 'login',
@@ -100,6 +101,7 @@ export default function App() {
   return (
     <>
       <ToastContainer />
+      <UpdatePrompt currentVersion={APP_VERSION} />
       <header className="header">
         <div className="header-content">
           {/* Left: Logo and App Name */}
