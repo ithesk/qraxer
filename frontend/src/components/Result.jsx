@@ -50,7 +50,9 @@ export default function Result({ result, onNewScan }) {
 
   // Save scan to history on mount
   useEffect(() => {
+    console.log('[Result] useEffect, result:', result);
     if (result) {
+      console.log('[Result] Saving scan to history...');
       scanHistory.addScan({
         repairId: result.repairId,
         repairName: result.repairName,
@@ -58,6 +60,7 @@ export default function Result({ result, onNewScan }) {
         newState: result.newState,
       });
       // Trigger refresh of RecentScans
+      console.log('[Result] Triggering refreshKey update');
       setRefreshKey(prev => prev + 1);
       // Show success toast
       toast.success(`Reparación #${result.repairId} actualizada`);

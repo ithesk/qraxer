@@ -9,9 +9,12 @@ export const scanHistory = {
   getScans() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      console.log('[scanHistory] getScans raw data:', data);
+      const parsed = data ? JSON.parse(data) : [];
+      console.log('[scanHistory] getScans parsed:', parsed);
+      return parsed;
     } catch (e) {
-      console.error('Error reading scan history:', e);
+      console.error('[scanHistory] Error reading scan history:', e);
       return [];
     }
   },
@@ -27,6 +30,7 @@ export const scanHistory = {
    */
   addScan(scan) {
     try {
+      console.log('[scanHistory] addScan called with:', scan);
       const scans = this.getScans();
 
       const newScan = {
@@ -37,13 +41,17 @@ export const scanHistory = {
         timestamp: scan.timestamp || new Date().toISOString(),
       };
 
+      console.log('[scanHistory] newScan object:', newScan);
+
       // Add to beginning and keep only last MAX_SCANS
       const updatedScans = [newScan, ...scans].slice(0, MAX_SCANS);
 
+      console.log('[scanHistory] updatedScans:', updatedScans);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedScans));
+      console.log('[scanHistory] Saved to localStorage');
       return updatedScans;
     } catch (e) {
-      console.error('Error saving scan history:', e);
+      console.error('[scanHistory] Error saving scan history:', e);
       return this.getScans();
     }
   },
