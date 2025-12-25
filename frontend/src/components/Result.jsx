@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { scanHistory } from '../services/scanHistory';
-import ConnectionIndicator from './ConnectionIndicator';
 import RecentScans from './RecentScans';
 import { toast } from './Toast';
 
@@ -145,11 +144,6 @@ export default function Result({ result, onNewScan }) {
         }}>
           Reparación #{result.repairId}
         </p>
-
-        {/* Connection Indicator */}
-        <div style={{ marginTop: '20px' }}>
-          <ConnectionIndicator />
-        </div>
       </div>
 
       {/* Recent Scans */}

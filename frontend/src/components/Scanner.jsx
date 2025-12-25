@@ -3,7 +3,6 @@ import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import RecentScans from './RecentScans';
-import ConnectionIndicator from './ConnectionIndicator';
 
 const CameraIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -254,11 +253,6 @@ export default function Scanner({ onScan, onLogout }) {
               Toca el botón para abrir la cámara
             </p>
 
-            {/* Connection Indicator */}
-            <div style={{ marginTop: '20px' }}>
-              <ConnectionIndicator />
-            </div>
-
             {/* Recent Scans in idle state */}
             <RecentScans />
           </div>
@@ -301,17 +295,16 @@ export default function Scanner({ onScan, onLogout }) {
           </div>
         ) : (
           /* Scanning State */
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="card" style={{
               padding: '16px',
-              flex: 1,
               display: 'flex',
               flexDirection: 'column'
             }}>
+              {/* Camera container - aspect ratio 4:3 */}
               <div style={{
                 width: '100%',
-                flex: 1,
-                minHeight: '300px',
+                aspectRatio: '4/3',
                 borderRadius: 'var(--radius-sm)',
                 overflow: 'hidden',
                 background: '#000',
@@ -331,6 +324,9 @@ export default function Scanner({ onScan, onLogout }) {
                 />
               </div>
 
+              {/* Recent Scans above instructions */}
+              <RecentScans />
+
               <p style={{
                 textAlign: 'center',
                 marginTop: '16px',
@@ -348,9 +344,6 @@ export default function Scanner({ onScan, onLogout }) {
                 Cancelar
               </button>
             </div>
-
-            {/* Recent Scans below camera */}
-            <RecentScans />
           </div>
         )}
       </div>

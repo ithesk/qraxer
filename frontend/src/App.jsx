@@ -5,7 +5,7 @@ import Scanner from './components/Scanner';
 import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
 import ToastContainer from './components/Toast';
-import UpdatePrompt from './components/UpdatePrompt';
+import ConnectionDot from './components/ConnectionDot';
 
 const APP_VERSION = '1.4.2';
 
@@ -101,13 +101,13 @@ export default function App() {
   return (
     <>
       <ToastContainer />
-      <UpdatePrompt currentVersion={APP_VERSION} />
       <header className="header">
         <div className="header-content">
           {/* Left: Logo and App Name */}
           <div className="header-brand">
-            <div className="header-logo">
+            <div className="header-logo" style={{ position: 'relative' }}>
               <QRLogoIcon />
+              <ConnectionDot />
             </div>
             <div className="header-titles">
               <h1 className="header-title">QRaxer</h1>
@@ -149,14 +149,94 @@ export default function App() {
       </main>
 
       <footer style={{
-        textAlign: 'center',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: '8px',
         padding: '8px',
         fontSize: '11px',
         color: 'var(--text-muted)',
         opacity: 0.6
       }}>
-        v{APP_VERSION}
+        <span>v{APP_VERSION}</span>
+        <VersionUpdateDot currentVersion={APP_VERSION} />
       </footer>
     </>
+  );
+}
+
+// Small dot indicator for version updates
+function VersionUpdateDot({ currentVersion }) {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  useEffect(() => {
+    checkForUpdates();
+    const interval = setInterval(checkForUpdates, 60000);
+    const handleFocus = () => checkForUpdates();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [currentVersion]);
+
+  const checkForUpdates = async () => {
+    try {
+      const response = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.version && data.version !== currentVersion) {
+          setUpdateAvailable(true);
+        }
+      }
+    } catch (e) {
+      // Silently fail
+    }
+  };
+
+  const handleUpdate = () => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => registration.unregister());
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        names.forEach((name) => caches.delete(name));
+      });
+    }
+    window.location.reload(true);
+  };
+
+  if (!updateAvailable) return null;
+
+  return (
+    <button
+      onClick={handleUpdate}
+      title="Nueva versión disponible - Toca para actualizar"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        background: 'var(--primary)',
+        color: 'white',
+        border: 'none',
+        padding: '2px 8px',
+        borderRadius: '10px',
+        fontSize: '10px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        minHeight: 'auto',
+        animation: 'pulse 2s infinite'
+      }}
+    >
+      <span style={{
+        width: '6px',
+        height: '6px',
+        borderRadius: '50%',
+        background: '#4ade80'
+      }} />
+      Actualizar
+    </button>
   );
 }
