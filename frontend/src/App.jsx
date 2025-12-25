@@ -7,7 +7,7 @@ import Result from './components/Result';
 import ToastContainer from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
 
-const APP_VERSION = '1.4.2';
+const APP_VERSION = '1.4.3';
 
 const VIEWS = {
   LOGIN: 'login',
