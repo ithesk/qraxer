@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
 
 const CameraIcon = () => (
@@ -30,7 +30,8 @@ export default function Scanner({ onScan, onLogout }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
-  const html5QrcodeRef = useRef(null);
+  const videoRef = useRef(null);
+  const scannerRef = useRef(null);
 
   // Verificar permisos de cámara al montar
   useEffect(() => {
@@ -62,29 +63,69 @@ export default function Scanner({ onScan, onLogout }) {
 
   // Iniciar scanner después de que el elemento esté en el DOM
   useEffect(() => {
-    if (scanning && !html5QrcodeRef.current) {
-      initScanner();
+    if (scanning && videoRef.current && !scannerRef.current) {
+      // Pequeño delay para asegurar que el video esté montado
+      const timer = setTimeout(() => {
+        initScanner();
+      }, 150);
+      return () => clearTimeout(timer);
     }
   }, [scanning]);
 
   const initScanner = async () => {
-    try {
-      html5QrcodeRef.current = new Html5Qrcode('qr-reader');
+    if (!videoRef.current) return;
 
-      await html5QrcodeRef.current.start(
-        { facingMode: 'environment' },
-        {
-          fps: 30,                              // Más rápido: 30 escaneos/segundo
-          qrbox: { width: 280, height: 280 },   // Área más grande
-          aspectRatio: 1.0,                     // Cuadrado para mejor detección
-          disableFlip: false,                   // Permitir QR invertidos
-          experimentalFeatures: {
-            useBarCodeDetectorIfSupported: true // Usar API nativa si disponible
-          }
+    try {
+      const hasCamera = await QrScanner.hasCamera();
+      if (!hasCamera) {
+        setError('No se detectó ninguna cámara en el dispositivo.');
+        setScanning(false);
+        return;
+      }
+
+      // Configurar atributos del video para iOS
+      videoRef.current.setAttribute('playsinline', 'true');
+      videoRef.current.muted = true;
+      videoRef.current.autoplay = true;
+
+      scannerRef.current = new QrScanner(
+        videoRef.current,
+        (result) => {
+          const data = result.data ?? result;
+          handleQrSuccess(data);
         },
-        handleQrSuccess,
-        () => {}
+        {
+          returnDetailedScanResult: true,
+          highlightScanRegion: true,
+          highlightCodeOutline: true,
+          maxScansPerSecond: 12,
+          inversionMode: 'original',
+          calculateScanRegion: (video) => {
+            const vw = video.videoWidth;
+            const vh = video.videoHeight;
+
+            // Área de escaneo más grande para mejor detección
+            const width = Math.round(vw * 0.70);
+            const height = Math.round(vh * 0.50);
+
+            const x = Math.round((vw - width) / 2);
+            const y = Math.round((vh - height) / 2);
+
+            return {
+              x,
+              y,
+              width,
+              height,
+              downScaledWidth: 640,
+              downScaledHeight: 480
+            };
+          }
+        }
       );
+
+      // Establecer cámara trasera
+      await scannerRef.current.setCamera('environment');
+      await scannerRef.current.start();
 
       // Guardar que el scanner se inició exitosamente
       localStorage.setItem('autoStartScanner', 'true');
@@ -100,18 +141,17 @@ export default function Scanner({ onScan, onLogout }) {
   const startScanner = () => {
     setError('');
     setScanning(true);
-    // initScanner será llamado por el useEffect cuando el DOM esté listo
   };
 
-  const stopScanner = async () => {
-    if (html5QrcodeRef.current) {
+  const stopScanner = () => {
+    if (scannerRef.current) {
       try {
-        await html5QrcodeRef.current.stop();
-        html5QrcodeRef.current.clear();
+        scannerRef.current.stop();
+        scannerRef.current.destroy();
       } catch (e) {
         // Ignore stop errors
       }
-      html5QrcodeRef.current = null;
+      scannerRef.current = null;
     }
     setScanning(false);
   };
@@ -125,16 +165,16 @@ export default function Scanner({ onScan, onLogout }) {
 
   const handleQrSuccess = async (decodedText) => {
     // Vibración corta al detectar QR
-    vibrate([50, 30, 50]);
+    vibrate(30);
 
-    await stopScanner();
+    stopScanner();
     setLoading(true);
     setError('');
 
     try {
       const data = await api.scanQR(decodedText);
       // Vibración de éxito
-      vibrate([100]);
+      vibrate(100);
       onScan(data, decodedText);
     } catch (err) {
       // Vibración de error (más larga)
@@ -186,7 +226,7 @@ export default function Scanner({ onScan, onLogout }) {
             onClick={startScanner}
             role="button"
             tabIndex={0}
-            aria-label="Iniciar escaner"
+            aria-label="Iniciar escáner"
             onKeyDown={(e) => e.key === 'Enter' && startScanner()}
             >
               <CameraIcon />
@@ -256,17 +296,28 @@ export default function Scanner({ onScan, onLogout }) {
               display: 'flex',
               flexDirection: 'column'
             }}>
-              <div
-                id="qr-reader"
-                style={{
-                  width: '100%',
-                  flex: 1,
-                  minHeight: '300px',
-                  borderRadius: 'var(--radius-sm)',
-                  overflow: 'hidden',
-                  background: '#000'
-                }}
-              />
+              <div style={{
+                width: '100%',
+                flex: 1,
+                minHeight: '300px',
+                borderRadius: 'var(--radius-sm)',
+                overflow: 'hidden',
+                background: '#000',
+                position: 'relative'
+              }}>
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  autoPlay
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block'
+                  }}
+                />
+              </div>
 
               <p style={{
                 textAlign: 'center',

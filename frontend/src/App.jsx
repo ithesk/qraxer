@@ -5,7 +5,7 @@ import Scanner from './components/Scanner';
 import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.4.0';
 
 const VIEWS = {
   LOGIN: 'login',

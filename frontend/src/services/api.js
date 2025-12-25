@@ -145,6 +145,30 @@ class ApiService {
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;
   }
+
+  /**
+   * Check API connection status
+   * @returns {Promise<{online: boolean, latency: number}>}
+   */
+  async checkConnection() {
+    const start = Date.now();
+    try {
+      const response = await fetch(`${API_URL.replace('/api', '')}/health`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
+      const latency = Date.now() - start;
+      return {
+        online: response.ok,
+        latency,
+      };
+    } catch (e) {
+      return {
+        online: false,
+        latency: 0,
+      };
+    }
+  }
 }
 
 export const api = new ApiService();

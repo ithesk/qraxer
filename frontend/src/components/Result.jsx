@@ -1,10 +1,19 @@
+import { useEffect } from 'react';
+import { scanHistory } from '../services/scanHistory';
+import ConnectionIndicator from './ConnectionIndicator';
+import RecentScans from './RecentScans';
+
 const STATE_LABELS = {
   draft: 'Borrador',
   confirmed: 'Confirmado',
-  under_repair: 'En reparacion',
+  under_repair: 'En reparación',
   ready: 'Listo',
   done: 'Hecho',
   cancel: 'Cancelado',
+  '2binvoiced': 'Por facturar',
+  test: 'Prueba',
+  handover: 'Entregado',
+  guarantee: 'Garantía',
 };
 
 const SuccessIcon = () => (
@@ -37,6 +46,18 @@ const CameraIcon = () => (
 );
 
 export default function Result({ result, onNewScan }) {
+  // Save scan to history on mount
+  useEffect(() => {
+    if (result) {
+      scanHistory.addScan({
+        repairId: result.repairId,
+        repairName: result.repairName,
+        oldState: result.oldState,
+        newState: result.newState,
+      });
+    }
+  }, [result]);
+
   return (
     <div className="fade-in" style={{
       display: 'flex',
@@ -82,7 +103,7 @@ export default function Result({ result, onNewScan }) {
           fontSize: '15px',
           marginBottom: '32px'
         }}>
-          El estado se cambio correctamente
+          El estado se cambió correctamente
         </p>
 
         {/* State Transition */}
@@ -115,9 +136,17 @@ export default function Result({ result, onNewScan }) {
           padding: '8px 16px',
           borderRadius: 'var(--radius-full)'
         }}>
-          Reparacion #{result.repairId}
+          Reparación #{result.repairId}
         </p>
+
+        {/* Connection Indicator */}
+        <div style={{ marginTop: '20px' }}>
+          <ConnectionIndicator />
+        </div>
       </div>
+
+      {/* Recent Scans */}
+      <RecentScans />
 
       {/* Action Button */}
       <div className="bottom-actions" style={{ marginTop: '20px' }}>
