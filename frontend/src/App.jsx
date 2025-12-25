@@ -30,6 +30,15 @@ const QRLogoIcon = () => (
   </svg>
 );
 
+// Logout icon
+const LogoutIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
 // User avatar with initials
 const UserAvatar = ({ user }) => {
   const getInitials = () => {
@@ -52,6 +61,7 @@ export default function App() {
   const [scanData, setScanData] = useState(null);
   const [qrContent, setQrContent] = useState(null);
   const [result, setResult] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     if (api.isAuthenticated()) {
@@ -66,12 +76,17 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    setShowUserMenu(false);
     await api.logout();
     setUser(null);
     setScanData(null);
     setQrContent(null);
     setResult(null);
     setView(VIEWS.LOGIN);
+  };
+
+  const toggleUserMenu = () => {
+    setShowUserMenu(!showUserMenu);
   };
 
   const handleScan = (data, qr) => {
@@ -115,11 +130,72 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right: User Info */}
+          {/* Right: User Info with Dropdown */}
           {user && (
-            <div className="header-user">
-              <UserAvatar user={user} />
-              <span className="header-user-name">{user.name || user.username}</span>
+            <div style={{ position: 'relative' }}>
+              <div
+                className="header-user"
+                onClick={toggleUserMenu}
+                style={{ cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && toggleUserMenu()}
+              >
+                <UserAvatar user={user} />
+                <span className="header-user-name">{user.name || user.username}</span>
+              </div>
+
+              {/* Dropdown Menu */}
+              {showUserMenu && (
+                <>
+                  {/* Backdrop to close menu */}
+                  <div
+                    onClick={() => setShowUserMenu(false)}
+                    style={{
+                      position: 'fixed',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      zIndex: 99
+                    }}
+                  />
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    right: 0,
+                    marginTop: '8px',
+                    background: 'white',
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+                    border: '1px solid var(--border-light)',
+                    minWidth: '160px',
+                    zIndex: 100,
+                    overflow: 'hidden'
+                  }}>
+                    <button
+                      onClick={handleLogout}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        width: '100%',
+                        padding: '12px 16px',
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: 'var(--error)',
+                        cursor: 'pointer',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <LogoutIcon />
+                      Cerrar sesion
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -131,7 +207,7 @@ export default function App() {
         )}
 
         {view === VIEWS.SCANNER && (
-          <Scanner onScan={handleScan} onLogout={handleLogout} />
+          <Scanner onScan={handleScan} />
         )}
 
         {view === VIEWS.CONFIRM && scanData && (

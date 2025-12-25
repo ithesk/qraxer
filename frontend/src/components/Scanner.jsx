@@ -12,14 +12,6 @@ const CameraIcon = () => (
   </svg>
 );
 
-const LogoutIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-);
-
 const AlertIcon = () => (
   <svg className="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <circle cx="12" cy="12" r="10" />
@@ -28,11 +20,12 @@ const AlertIcon = () => (
   </svg>
 );
 
-export default function Scanner({ onScan, onLogout }) {
+export default function Scanner({ onScan }) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
+  const [showFlash, setShowFlash] = useState(false);
   const videoRef = useRef(null);
   const scannerRef = useRef(null);
 
@@ -168,8 +161,11 @@ export default function Scanner({ onScan, onLogout }) {
 
   const handleQrSuccess = async (decodedText) => {
     console.log('[Scanner] QR detectado:', decodedText);
-    // Vibración corta al detectar QR
+
+    // Flash verde visual + vibración (feedback inmediato < 300ms)
+    setShowFlash(true);
     vibrate(30);
+    setTimeout(() => setShowFlash(false), 150);
 
     stopScanner();
     setLoading(true);
@@ -208,6 +204,20 @@ export default function Scanner({ onScan, onLogout }) {
       flexDirection: 'column',
       minHeight: 'calc(100vh - 140px)'
     }}>
+      {/* Flash verde al detectar QR */}
+      {showFlash && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(34, 197, 94, 0.3)',
+          zIndex: 9999,
+          pointerEvents: 'none'
+        }} />
+      )}
+
       {/* Error Alert */}
       {error && (
         <div className="alert alert-error">
@@ -363,20 +373,6 @@ export default function Scanner({ onScan, onLogout }) {
         )}
       </div>
 
-      {/* Logout Button - Always at bottom */}
-      <div className="bottom-actions" style={{ marginTop: '20px' }}>
-        <button
-          onClick={onLogout}
-          className="btn-ghost"
-          style={{
-            width: '100%',
-            color: 'var(--text-muted)'
-          }}
-        >
-          <LogoutIcon />
-          <span>Cerrar sesión</span>
-        </button>
-      </div>
     </div>
   );
 }
