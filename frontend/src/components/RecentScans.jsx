@@ -6,7 +6,7 @@ const STATE_LABELS = {
   confirmed: 'Confirmado',
   under_repair: 'En reparación',
   ready: 'Listo',
-  done: 'Hecho',
+  done: 'Reparado',
   cancel: 'Cancelado',
   '2binvoiced': 'Por facturar',
   test: 'Prueba',
@@ -18,13 +18,6 @@ const ClockIcon = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <circle cx="12" cy="12" r="10" />
     <polyline points="12 6 12 12 16 14" />
-  </svg>
-);
-
-const ArrowIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <line x1="5" y1="12" x2="19" y2="12" />
-    <polyline points="12 5 19 12 12 19" />
   </svg>
 );
 
@@ -81,7 +74,7 @@ export default function RecentScans({ refreshKey = 0 }) {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
               }}>
-                #{scan.repairId}
+                {scan.repairName}
               </div>
               <div style={{
                 fontSize: '11px',
@@ -92,37 +85,13 @@ export default function RecentScans({ refreshKey = 0 }) {
               </div>
             </div>
 
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+            <span className={`state-badge state-${scan.currentState}`} style={{
+              fontSize: '11px',
+              padding: '4px 10px',
               flexShrink: 0
             }}>
-              <span style={{
-                fontSize: '11px',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-full)',
-                background: 'var(--border-light)',
-                color: 'var(--text-secondary)'
-              }}>
-                {STATE_LABELS[scan.oldState] || scan.oldState}
-              </span>
-
-              <span style={{ color: 'var(--text-muted)' }}>
-                <ArrowIcon />
-              </span>
-
-              <span style={{
-                fontSize: '11px',
-                padding: '3px 8px',
-                borderRadius: 'var(--radius-full)',
-                background: '#dcfce7',
-                color: '#15803d',
-                fontWeight: '500'
-              }}>
-                {STATE_LABELS[scan.newState] || scan.newState}
-              </span>
-            </div>
+              {STATE_LABELS[scan.currentState] || scan.currentState}
+            </span>
           </div>
         ))}
       </div>

@@ -20,9 +20,8 @@ export const scanHistory = {
    * Add a new scan to history
    * @param {Object} scan - The scan record to add
    * @param {number} scan.repairId - Repair ID
-   * @param {string} scan.repairName - Repair name/description
-   * @param {string} scan.oldState - Previous state
-   * @param {string} scan.newState - New state
+   * @param {string} scan.repairName - Repair name/code
+   * @param {string} scan.currentState - Current state at scan time
    * @param {string} scan.timestamp - ISO timestamp
    */
   addScan(scan) {
@@ -31,9 +30,8 @@ export const scanHistory = {
 
       const newScan = {
         repairId: scan.repairId,
-        repairName: scan.repairName || `Reparación #${scan.repairId}`,
-        oldState: scan.oldState,
-        newState: scan.newState,
+        repairName: scan.repairName || `#${scan.repairId}`,
+        currentState: scan.currentState,
         timestamp: scan.timestamp || new Date().toISOString(),
       };
 

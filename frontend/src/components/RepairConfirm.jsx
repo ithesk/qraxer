@@ -122,13 +122,17 @@ export default function RepairConfirm({ repair, qrContent, onUpdate, onCancel })
   const handleQuickAction = async () => {
     if (!quickAction) return;
 
+    console.log('[RepairConfirm] Acción rápida:', quickAction.newState);
     setError('');
     setLoading(true);
 
     try {
+      console.log('[RepairConfirm] Llamando API updateState...');
       const result = await api.updateState(qrContent, quickAction.newState, '');
+      console.log('[RepairConfirm] API respondió:', result);
       onUpdate(result);
     } catch (err) {
+      console.error('[RepairConfirm] Error:', err.message);
       setError(err.message);
       setLoading(false);
     }

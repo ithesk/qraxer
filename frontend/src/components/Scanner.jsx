@@ -3,6 +3,7 @@ import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import RecentScans from './RecentScans';
+import { scanHistory } from '../services/scanHistory';
 
 const CameraIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -166,6 +167,7 @@ export default function Scanner({ onScan, onLogout }) {
   };
 
   const handleQrSuccess = async (decodedText) => {
+    console.log('[Scanner] QR detectado:', decodedText);
     // Vibración corta al detectar QR
     vibrate(30);
 
@@ -174,11 +176,24 @@ export default function Scanner({ onScan, onLogout }) {
     setError('');
 
     try {
+      console.log('[Scanner] Llamando API scanQR...');
       const data = await api.scanQR(decodedText);
+      console.log('[Scanner] API respondió:', data);
+
+      // Guardar en historial de escaneos
+      console.log('[Scanner] Guardando en historial:', data.repair);
+      scanHistory.addScan({
+        repairId: data.repair.id,
+        repairName: data.repair.name,
+        currentState: data.repair.currentState,
+      });
+      console.log('[Scanner] Historial guardado');
+
       // Vibración de éxito
       vibrate(100);
       onScan(data, decodedText);
     } catch (err) {
+      console.error('[Scanner] Error:', err.message);
       // Vibración de error (más larga)
       vibrate([200, 100, 200]);
       setError(err.message);

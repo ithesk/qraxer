@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { scanHistory } from '../services/scanHistory';
+import { useEffect } from 'react';
 import RecentScans from './RecentScans';
 import { toast } from './Toast';
 
@@ -46,19 +45,10 @@ const CameraIcon = () => (
 );
 
 export default function Result({ result, onNewScan }) {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  // Save scan to history on mount
+  // Show success toast on mount
   useEffect(() => {
     if (result) {
-      scanHistory.addScan({
-        repairId: result.repairId,
-        repairName: result.repairName,
-        oldState: result.oldState,
-        newState: result.newState,
-      });
-      setRefreshKey(prev => prev + 1);
-      toast.success(`Reparación #${result.repairId} actualizada`);
+      toast.success(`${result.repairName} actualizada`);
     }
   }, [result]);
 

@@ -34,8 +34,10 @@ export default function Login({ onSuccess }) {
 
     try {
       const user = await api.login(username, password);
+      console.log('[Login] Sesión iniciada:', user);
       onSuccess(user);
     } catch (err) {
+      console.error('[Login] Error:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);

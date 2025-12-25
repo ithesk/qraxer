@@ -181,16 +181,24 @@ function VersionUpdateDot({ currentVersion }) {
   }, [currentVersion]);
 
   const checkForUpdates = async () => {
+    console.log('[VersionCheck] Verificando actualizaciones...');
     try {
       const response = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
+      console.log('[VersionCheck] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('[VersionCheck] Versión en servidor:', data.version, '- Versión actual:', currentVersion);
         if (data.version && data.version !== currentVersion) {
+          console.log('[VersionCheck] Nueva versión disponible!');
           setUpdateAvailable(true);
+        } else {
+          console.log('[VersionCheck] Ya tienes la última versión');
         }
+      } else {
+        console.log('[VersionCheck] Error en respuesta:', response.statusText);
       }
     } catch (e) {
-      // Silently fail
+      console.error('[VersionCheck] Error:', e.message);
     }
   };
 
