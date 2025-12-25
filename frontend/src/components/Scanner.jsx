@@ -3,6 +3,7 @@ import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import RecentScans from './RecentScans';
+import ConnectionIndicator from './ConnectionIndicator';
 
 const CameraIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -252,6 +253,11 @@ export default function Scanner({ onScan, onLogout }) {
             }}>
               Toca el botón para abrir la cámara
             </p>
+
+            {/* Connection Indicator */}
+            <div style={{ marginTop: '20px' }}>
+              <ConnectionIndicator />
+            </div>
 
             {/* Recent Scans in idle state */}
             <RecentScans />

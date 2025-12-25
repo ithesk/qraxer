@@ -28,11 +28,11 @@ const ArrowIcon = () => (
   </svg>
 );
 
-export default function RecentScans({ refreshKey }) {
-  const [scans, setScans] = useState([]);
+export default function RecentScans({ refreshKey = 0 }) {
+  const [scans, setScans] = useState(() => scanHistory.getScans());
 
   useEffect(() => {
-    // Load scans on mount and when refreshKey changes
+    // Reload scans when refreshKey changes
     const loadedScans = scanHistory.getScans();
     setScans(loadedScans);
   }, [refreshKey]);
