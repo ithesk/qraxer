@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
 import { toast } from './Toast';
+import RecentScans from './RecentScans';
 
 const CameraIcon = () => (
   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -251,6 +252,9 @@ export default function Scanner({ onScan, onLogout }) {
             }}>
               Toca el botón para abrir la cámara
             </p>
+
+            {/* Recent Scans in idle state */}
+            <RecentScans />
           </div>
         ) : loading ? (
           /* Loading State */
@@ -338,6 +342,9 @@ export default function Scanner({ onScan, onLogout }) {
                 Cancelar
               </button>
             </div>
+
+            {/* Recent Scans below camera */}
+            <RecentScans />
           </div>
         )}
       </div>
