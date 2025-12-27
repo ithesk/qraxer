@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { odooClient } from '../services/odoo.js';
 import { qrService } from '../services/qr.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { logger } from '../utils/logger.js';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.post('/scan', async (req, res, next) => {
       throw new AppError('Contenido de QR requerido', 400);
     }
 
-    console.log('[SCAN] QR recibido:', qrContent, '- Usuario:', userId);
+    logger.debug('QR recibido - Usuario:', userId);
 
     // Validar QR
     const qrResult = qrService.validateQRContent(qrContent);
@@ -177,7 +178,7 @@ router.post('/create', async (req, res, next) => {
       throw new AppError('Cliente requerido', 400);
     }
 
-    console.log('[REPAIR] Creando orden para cliente:', clientId);
+    logger.debug('Creando orden para cliente:', clientId);
 
     const repair = await odooClient.createRepairOrder(
       { clientId, equipment, problems, note },
@@ -209,7 +210,7 @@ router.get('/recent', async (req, res, next) => {
     const userId = req.user.userId;
     const days = parseInt(req.query.days) || 7;
 
-    console.log('[REPAIR] Obteniendo órdenes recientes, días:', days);
+    logger.debug('Obteniendo órdenes recientes, días:', days);
 
     const repairs = await odooClient.getRecentRepairs(userId, days);
 

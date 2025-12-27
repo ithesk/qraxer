@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { odooClient } from '../services/odoo.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { logger } from '../utils/logger.js';
 
 const router = Router();
 
@@ -21,7 +22,7 @@ router.post('/search', async (req, res, next) => {
       throw new AppError('Teléfono requerido', 400);
     }
 
-    console.log('[CLIENTS] Buscando cliente por teléfono:', phone);
+    logger.debug('Buscando cliente');
 
     const partners = await odooClient.searchPartnerByPhone(phone, userId);
 
@@ -59,7 +60,7 @@ router.post('/create', async (req, res, next) => {
       throw new AppError('Nombre requerido', 400);
     }
 
-    console.log('[CLIENTS] Creando cliente:', name, phone);
+    logger.debug('Creando cliente:', name);
 
     const partner = await odooClient.createPartner({ name, phone, email }, userId);
 

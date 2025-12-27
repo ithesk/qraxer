@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import { config } from '../config/env.js';
 
+const isDev = config.nodeEnv === 'development';
+const log = (...args) => isDev && console.log('[QR]', ...args);
+
 /**
  * Servicio de validación y generación de QR
  * Soporta dos modos:
@@ -59,7 +62,7 @@ class QRService {
         return { valid: false, error: 'Formato de codigo invalido' };
       }
 
-      console.log('[QR] Modo simple - codigo:', trimmed);
+      log('Modo simple');
       return {
         valid: true,
         repairCode: trimmed,
@@ -99,7 +102,7 @@ class QRService {
         return { valid: false, error: 'Firma de QR invalida' };
       }
 
-      console.log('[QR] Modo firmado - codigo:', repairCode);
+      log('Modo firmado');
       return {
         valid: true,
         repairCode: repairCode,

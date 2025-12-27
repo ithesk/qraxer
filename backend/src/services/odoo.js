@@ -100,7 +100,7 @@ class OdooClient {
    * Autenticar usuario contra Odoo y guardar su sesión
    */
   async authenticate(username, password) {
-    log('Autenticando usuario:', username);
+    log('Autenticando usuario');
 
     try {
       const { result, sessionId } = await this.jsonRpc('/web/session/authenticate', {
@@ -282,7 +282,7 @@ class OdooClient {
    * Buscar cliente/partner por teléfono
    */
   async searchPartnerByPhone(phone, userId) {
-    log('Buscando cliente por teléfono:', phone);
+    log('Buscando cliente por teléfono');
 
     // Limpiar teléfono (solo dígitos)
     const cleanPhone = phone.replace(/\D/g, '');
@@ -307,7 +307,7 @@ class OdooClient {
    * Crear nuevo cliente/partner
    */
   async createPartner(data, userId) {
-    log('Creando nuevo cliente:', data.name);
+    log('Creando nuevo cliente');
 
     const partnerData = {
       name: data.name,
@@ -336,7 +336,7 @@ class OdooClient {
    * Crear nueva orden de reparación
    */
   async createRepairOrder(data, userId, userName) {
-    log('Creando orden de reparación:', data);
+    log('Creando orden de reparación');
 
     // Construir descripción del problema
     const problemLabels = {
