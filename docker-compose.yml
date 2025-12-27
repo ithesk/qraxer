@@ -5,7 +5,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: qraxer-backend
+    container_name: qraxer-backendv3
     restart: unless-stopped
     environment:
       - NODE_ENV=production
@@ -33,7 +33,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: qraxer-frontend
+    container_name: qraxer-frontendv3
     restart: unless-stopped
     ports:
       - "${PORT:-8080}:80"
