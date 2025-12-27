@@ -36,6 +36,18 @@ const HistoryIcon = ({ active }) => (
   </svg>
 );
 
+// Product/Barcode Icon
+const ProductIcon = ({ active }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+    <path d="M3 5v14" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M6 5v14" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M10 5v14" stroke={active ? 'var(--primary)' : 'currentColor'} strokeWidth={active ? '2.5' : '2'} />
+    <path d="M14 5v14" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M18 5v14" stroke={active ? 'var(--primary)' : 'currentColor'} strokeWidth={active ? '2.5' : '2'} />
+    <path d="M21 5v14" stroke={active ? 'var(--primary)' : 'currentColor'} />
+  </svg>
+);
+
 export default function BottomNav({ activeTab, onTabChange }) {
   const handleTabClick = (id) => {
     if (id !== activeTab) {
@@ -77,6 +89,18 @@ export default function BottomNav({ activeTab, onTabChange }) {
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
+      </button>
+
+      {/* Productos */}
+      <button
+        className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
+        onClick={() => handleTabClick('products')}
+        aria-label="Productos"
+      >
+        <span className="bottom-nav-icon">
+          <ProductIcon active={activeTab === 'products'} />
+        </span>
+        <span className="bottom-nav-label">Productos</span>
       </button>
 
       {/* Historial */}

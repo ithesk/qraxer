@@ -219,6 +219,43 @@ class ApiService {
     return data;
   }
 
+  // === Product Methods ===
+
+  /**
+   * Get product by barcode
+   */
+  async getProductByBarcode(barcode) {
+    const response = await this.request(`/products/barcode/${encodeURIComponent(barcode)}`, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al buscar producto');
+    }
+
+    return data;
+  }
+
+  /**
+   * Search products by name/reference
+   */
+  async searchProducts(query) {
+    const response = await this.request('/products/search', {
+      method: 'POST',
+      body: JSON.stringify({ query }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al buscar productos');
+    }
+
+    return data;
+  }
+
   /**
    * Check API connection status
    * @returns {Promise<{online: boolean, latency: number}>}

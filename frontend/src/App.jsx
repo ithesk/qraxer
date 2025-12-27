@@ -10,6 +10,7 @@ import OfflineBanner from './components/OfflineBanner';
 import BottomNav from './components/BottomNav';
 import QuickCreator from './components/QuickCreator/QuickCreator';
 import History from './components/History';
+import ProductScanner from './components/ProductScanner';
 
 const APP_VERSION = '2.0.0-experimental';
 
@@ -73,7 +74,7 @@ export default function App() {
   // Tab navigation - restore from localStorage
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return saved && ['scanner', 'creator', 'history'].includes(saved) ? saved : 'scanner';
+    return saved && ['scanner', 'creator', 'products', 'history'].includes(saved) ? saved : 'scanner';
   });
 
   // Scanner tab state
@@ -267,6 +268,10 @@ export default function App() {
 
         {isLoggedIn && activeTab === 'creator' && (
           <QuickCreator />
+        )}
+
+        {isLoggedIn && activeTab === 'products' && (
+          <ProductScanner />
         )}
 
         {isLoggedIn && activeTab === 'history' && (

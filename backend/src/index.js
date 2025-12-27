@@ -6,6 +6,7 @@ import { config } from './config/env.js';
 import authRoutes from './routes/auth.js';
 import repairRoutes from './routes/repair.js';
 import clientsRoutes from './routes/clients.js';
+import productsRoutes from './routes/products.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -38,6 +39,7 @@ app.use(limiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/repair', repairRoutes);
 app.use('/api/clients', clientsRoutes);
+app.use('/api/products', productsRoutes);
 
 // Error handling
 app.use(errorHandler);
