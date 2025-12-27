@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import Quagga from '@ericblade/quagga2';
+import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import haptics from '../services/haptics';
@@ -34,127 +34,68 @@ export default function ProductScanner() {
   const [error, setError] = useState('');
   const [lastCode, setLastCode] = useState('');
 
-  const scannerRef = useRef(null);
+  const videoRef = useRef(null);
+  const readerRef = useRef(null);
 
   useEffect(() => {
-    // Auto-iniciar cámara si ya tiene permiso
-    checkCameraAndAutoStart();
     return () => {
       stopScanner();
     };
   }, []);
 
-  const checkCameraAndAutoStart = async () => {
+  const initScanner = async () => {
+    if (!videoRef.current) return;
+
     try {
-      const result = await navigator.permissions.query({ name: 'camera' });
-      if (result.state === 'granted') {
-        startScanner();
-      }
-    } catch (e) {
-      // Permissions API no soportada
-    }
-  };
+      // Configurar hints para formatos de código de barras
+      const hints = new Map();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+        BarcodeFormat.CODE_128,
+        BarcodeFormat.CODE_39,
+        BarcodeFormat.CODE_93,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
 
-  // Detectar si es iOS para aplicar configuraciones específicas
-  const isIOS = () => {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  };
+      readerRef.current = new BrowserMultiFormatReader(hints);
 
-  const initScanner = () => {
-    if (!scannerRef.current) return;
+      // Configurar atributos del video para iOS
+      videoRef.current.setAttribute('playsinline', 'true');
+      videoRef.current.muted = true;
+      videoRef.current.autoplay = true;
 
-    // Configuración optimizada para iOS/iPhone
-    // Referencias:
-    // - https://github.com/ericblade/quagga2/discussions/504
-    // - https://github.com/grocy/grocy/pull/844
-    const iosOptimized = isIOS();
+      // Obtener cámaras disponibles
+      const devices = await readerRef.current.listVideoInputDevices();
 
-    Quagga.init({
-      inputStream: {
-        name: 'Live',
-        type: 'LiveStream',
-        target: scannerRef.current,
-        constraints: {
-          facingMode: 'environment',
-          // iOS funciona mejor con resoluciones específicas
-          width: iosOptimized ? { ideal: 1280 } : { min: 640, ideal: 1280 },
-          height: iosOptimized ? { ideal: 720 } : { min: 480, ideal: 720 },
-          // Aspect ratio ayuda en iOS
-          aspectRatio: { min: 1, max: 2 },
-          // Forzar autofocus continuo para iOS
-          focusMode: 'continuous',
-        },
-        // Área de escaneo - más grande para mejor detección
-        area: {
-          top: '20%',
-          right: '10%',
-          left: '10%',
-          bottom: '20%',
-        },
-      },
-      locator: {
-        // Para iOS: patchSize 'small' y halfSample true mejoran rendimiento
-        patchSize: iosOptimized ? 'small' : 'medium',
-        halfSample: true,
-      },
-      // numOfWorkers deshabilitado - el mantenedor de Quagga2 indica que no es útil
-      // y puede causar problemas
-      numOfWorkers: 0,
-      // Frecuencia de escaneo - 5 es más estable en iOS
-      frequency: iosOptimized ? 5 : 10,
-      decoder: {
-        // Solo incluir los formatos que realmente usamos (mejor rendimiento)
-        readers: [
-          'ean_reader',
-          'ean_8_reader',
-          'upc_reader',
-          'upc_e_reader',
-          'code_128_reader',
-        ],
-      },
-      // locate: false puede mejorar rendimiento si el código está centrado
-      locate: !iosOptimized,
-    }, (err) => {
-      if (err) {
-        console.error('Quagga init error:', err);
-        setError('No se pudo acceder a la cámara. Verifica los permisos.');
-        setScanning(false);
-        return;
-      }
-      Quagga.start();
-
-      // Aplicar autofocus continuo después de iniciar (para iOS)
-      // Pequeño delay para que el video esté listo
-      setTimeout(() => applyFocusMode(), 500);
-    });
-
-    Quagga.onDetected(handleBarcodeDetected);
-  };
-
-  // Aplicar modo de enfoque continuo para mejor soporte en iPhone
-  const applyFocusMode = () => {
-    try {
-      const video = scannerRef.current?.querySelector('video');
-      if (video && video.srcObject) {
-        const track = video.srcObject.getVideoTracks()[0];
-        if (track) {
-          const capabilities = track.getCapabilities();
-          console.log('[ProductScanner] Camera capabilities:', capabilities);
-
-          if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
-            track.applyConstraints({
-              advanced: [{ focusMode: 'continuous' }]
-            }).then(() => {
-              console.log('[ProductScanner] Autofocus continuo aplicado');
-            }).catch(e => {
-              console.log('[ProductScanner] No se pudo aplicar focusMode:', e.message);
-            });
-          }
+      // Preferir cámara trasera
+      let selectedDevice = devices[0];
+      for (const device of devices) {
+        if (device.label.toLowerCase().includes('back') ||
+            device.label.toLowerCase().includes('rear') ||
+            device.label.toLowerCase().includes('environment')) {
+          selectedDevice = device;
+          break;
         }
       }
-    } catch (e) {
-      console.log('[ProductScanner] Error aplicando focus:', e.message);
+
+      // Iniciar escaneo continuo
+      await readerRef.current.decodeFromVideoDevice(
+        selectedDevice?.deviceId || undefined,
+        videoRef.current,
+        (result, err) => {
+          if (result) {
+            handleBarcodeDetected(result.getText());
+          }
+          // Ignorar errores de "no barcode found" - son normales
+        }
+      );
+    } catch (err) {
+      console.error('Camera error:', err);
+      setError('No se pudo acceder a la cámara. Verifica los permisos.');
+      setScanning(false);
     }
   };
 
@@ -162,35 +103,23 @@ export default function ProductScanner() {
     setError('');
     setProduct(null);
     setScanning(true);
-    // Pequeño delay para que el DOM monte el contenedor
+    // Pequeño delay para que el DOM monte el video
     setTimeout(() => initScanner(), 150);
   };
 
   const stopScanner = () => {
-    try {
-      Quagga.offDetected(handleBarcodeDetected);
-      Quagga.stop();
-    } catch (e) {
-      // Ignore
+    if (readerRef.current) {
+      try {
+        readerRef.current.reset();
+      } catch (e) {
+        // Ignore
+      }
+      readerRef.current = null;
     }
     setScanning(false);
   };
 
-  const handleBarcodeDetected = async (result) => {
-    const code = result.codeResult.code;
-
-    // Validar que el código tenga confianza suficiente
-    // Quagga puede dar falsos positivos, verificamos que tenga buena decodificación
-    const errors = result.codeResult.decodedCodes
-      .filter(c => c.error !== undefined)
-      .map(c => c.error);
-    const avgError = errors.reduce((a, b) => a + b, 0) / errors.length;
-
-    // Si el error promedio es muy alto, ignorar
-    if (avgError > 0.25) {
-      return;
-    }
-
+  const handleBarcodeDetected = async (code) => {
     // Avoid duplicate scans
     if (code === lastCode) return;
     setLastCode(code);
@@ -388,18 +317,27 @@ export default function ProductScanner() {
     return (
       <div className="fade-in">
         <div className="card" style={{ padding: '16px' }}>
-          {/* Camera view - Quagga container */}
-          <div
-            ref={scannerRef}
-            style={{
-              width: '100%',
-              aspectRatio: '16/9',
-              borderRadius: 'var(--radius-sm)',
-              overflow: 'hidden',
-              background: '#000',
-              position: 'relative',
-            }}
-          >
+          {/* Camera view */}
+          <div style={{
+            width: '100%',
+            aspectRatio: '4/3',
+            borderRadius: 'var(--radius-sm)',
+            overflow: 'hidden',
+            background: '#000',
+            position: 'relative',
+          }}>
+            <video
+              ref={videoRef}
+              playsInline
+              muted
+              autoPlay
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
             {/* Scan line overlay */}
             <div style={{
               position: 'absolute',

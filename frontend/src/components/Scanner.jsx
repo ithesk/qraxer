@@ -42,17 +42,12 @@ export default function Scanner({ onScan }) {
       const result = await navigator.permissions.query({ name: 'camera' });
       setHasPermission(result.state === 'granted');
 
-      // Auto-iniciar si ya tiene permiso (siempre abrir cámara automáticamente)
-      if (result.state === 'granted') {
-        setScanning(true);
-      }
-
       // Escuchar cambios en el permiso
       result.onchange = () => {
         setHasPermission(result.state === 'granted');
       };
     } catch (e) {
-      // Permissions API no soportada - intentar abrir igual
+      // Permissions API no soportada
       setHasPermission(null);
     }
   };
