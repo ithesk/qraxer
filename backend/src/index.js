@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config/env.js';
 import authRoutes from './routes/auth.js';
 import repairRoutes from './routes/repair.js';
+import clientsRoutes from './routes/clients.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -16,25 +17,27 @@ app.use(cors({
   credentials: true,
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: config.rateLimit.windowMs,
-  max: config.rateLimit.max,
-  message: { error: 'Demasiadas solicitudes, intente más tarde' },
-});
-app.use(limiter);
-
 // Body parsing
 app.use(express.json());
 
-// Health check
+// Health check (before rate limiting - called frequently for connection check)
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Rate limiting (after health check, skip /health)
+const limiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.nodeEnv === 'development' ? 500 : config.rateLimit.max,
+  message: { error: 'Demasiadas solicitudes, intente más tarde' },
+  skip: (req) => req.path === '/health',
+});
+app.use(limiter);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/repair', repairRoutes);
+app.use('/api/clients', clientsRoutes);
 
 // Error handling
 app.use(errorHandler);

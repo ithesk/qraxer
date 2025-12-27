@@ -6,11 +6,15 @@ import RepairConfirm from './components/RepairConfirm';
 import Result from './components/Result';
 import ToastContainer from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
+import OfflineBanner from './components/OfflineBanner';
+import BottomNav from './components/BottomNav';
+import QuickCreator from './components/QuickCreator/QuickCreator';
+import History from './components/History';
 
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '2.0.0-experimental';
 
-const VIEWS = {
-  LOGIN: 'login',
+// Scanner tab sub-views
+const SCANNER_VIEWS = {
   SCANNER: 'scanner',
   CONFIRM: 'confirm',
   RESULT: 'result',
@@ -55,24 +59,44 @@ const UserAvatar = ({ user }) => {
   );
 };
 
+// Persistent storage keys
+const STORAGE_KEYS = {
+  ACTIVE_TAB: 'qraxer_active_tab',
+};
+
 export default function App() {
-  const [view, setView] = useState(VIEWS.LOGIN);
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Tab navigation - restore from localStorage
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
+    return saved && ['scanner', 'creator', 'history'].includes(saved) ? saved : 'scanner';
+  });
+
+  // Scanner tab state
+  const [scannerView, setScannerView] = useState(SCANNER_VIEWS.SCANNER);
   const [scanData, setScanData] = useState(null);
   const [qrContent, setQrContent] = useState(null);
   const [result, setResult] = useState(null);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  // Persist active tab
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     if (api.isAuthenticated()) {
       setUser(api.getUser());
-      setView(VIEWS.SCANNER);
+      setIsLoggedIn(true);
     }
   }, []);
 
   const handleLogin = (userData) => {
     setUser(userData);
-    setView(VIEWS.SCANNER);
+    setIsLoggedIn(true);
   };
 
   const handleLogout = async () => {
@@ -82,23 +106,26 @@ export default function App() {
     setScanData(null);
     setQrContent(null);
     setResult(null);
-    setView(VIEWS.LOGIN);
+    setIsLoggedIn(false);
+    setActiveTab('scanner');
+    setScannerView(SCANNER_VIEWS.SCANNER);
   };
 
   const toggleUserMenu = () => {
     setShowUserMenu(!showUserMenu);
   };
 
+  // Scanner tab handlers
   const handleScan = (data, qr) => {
     setScanData(data);
     setQrContent(qr);
-    setView(VIEWS.CONFIRM);
+    setScannerView(SCANNER_VIEWS.CONFIRM);
   };
 
   const handleUpdate = (updateResult) => {
     console.log('[App] handleUpdate recibido:', updateResult);
     setResult(updateResult);
-    setView(VIEWS.RESULT);
+    setScannerView(SCANNER_VIEWS.RESULT);
     console.log('[App] Vista cambiada a RESULT');
   };
 
@@ -106,18 +133,27 @@ export default function App() {
     setScanData(null);
     setQrContent(null);
     setResult(null);
-    setView(VIEWS.SCANNER);
+    setScannerView(SCANNER_VIEWS.SCANNER);
   };
 
   const handleCancel = () => {
     setScanData(null);
     setQrContent(null);
-    setView(VIEWS.SCANNER);
+    setScannerView(SCANNER_VIEWS.SCANNER);
+  };
+
+  // Tab change handler - reset scanner view when switching tabs
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'scanner') {
+      setScannerView(SCANNER_VIEWS.SCANNER);
+    }
   };
 
   return (
     <>
       <ToastContainer />
+      <OfflineBanner />
       <header className="header">
         <div className="header-content">
           {/* Left: Logo and App Name */}
@@ -203,28 +239,44 @@ export default function App() {
         </div>
       </header>
 
-      <main className="container" style={{ flex: 1 }}>
-        {view === VIEWS.LOGIN && (
+      <main className="container main-content">
+        {!isLoggedIn && (
           <Login onSuccess={handleLogin} />
         )}
 
-        {view === VIEWS.SCANNER && (
-          <Scanner onScan={handleScan} />
+        {isLoggedIn && activeTab === 'scanner' && (
+          <>
+            {scannerView === SCANNER_VIEWS.SCANNER && (
+              <Scanner onScan={handleScan} />
+            )}
+
+            {scannerView === SCANNER_VIEWS.CONFIRM && scanData && (
+              <RepairConfirm
+                repair={scanData.repair}
+                qrContent={qrContent}
+                onUpdate={handleUpdate}
+                onCancel={handleCancel}
+              />
+            )}
+
+            {scannerView === SCANNER_VIEWS.RESULT && result && (
+              <Result result={result} onNewScan={handleNewScan} />
+            )}
+          </>
         )}
 
-        {view === VIEWS.CONFIRM && scanData && (
-          <RepairConfirm
-            repair={scanData.repair}
-            qrContent={qrContent}
-            onUpdate={handleUpdate}
-            onCancel={handleCancel}
-          />
+        {isLoggedIn && activeTab === 'creator' && (
+          <QuickCreator />
         )}
 
-        {view === VIEWS.RESULT && result && (
-          <Result result={result} onNewScan={handleNewScan} />
+        {isLoggedIn && activeTab === 'history' && (
+          <History />
         )}
       </main>
+
+      {isLoggedIn && (
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      )}
 
       <footer style={{
         display: 'flex',

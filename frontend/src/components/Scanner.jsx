@@ -5,8 +5,8 @@ import { toast } from './Toast';
 import RecentScans from './RecentScans';
 import { scanHistory } from '../services/scanHistory';
 
-const CameraIcon = () => (
-  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+const CameraIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
     <circle cx="12" cy="13" r="4" />
   </svg>
@@ -229,56 +229,78 @@ export default function Scanner({ onScan }) {
       {/* Main Scanner Area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {!scanning && !loading ? (
-          /* Idle State - Big Scan Button */
+          /* Idle State - Blue Area like mockup */
           <div style={{
-            flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '40px 20px'
+            gap: '20px'
           }}>
+            {/* Blue Scanner Card */}
             <div style={{
-              width: '140px',
-              height: '140px',
-              borderRadius: '50%',
               background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 32px rgba(37, 99, 235, 0.4)',
-              cursor: 'pointer',
-              transition: 'transform 0.2s, box-shadow 0.2s',
+              borderRadius: 'var(--radius)',
+              padding: '40px 24px',
+              textAlign: 'center',
               color: 'white'
-            }}
-            onClick={startScanner}
-            role="button"
-            tabIndex={0}
-            aria-label="Iniciar escáner"
-            onKeyDown={(e) => e.key === 'Enter' && startScanner()}
-            >
-              <CameraIcon />
+            }}>
+              {/* QR Icon */}
+              <div style={{
+                width: '80px',
+                height: '80px',
+                margin: '0 auto 20px',
+                background: 'rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <rect x="3" y="3" width="7" height="7" rx="1" />
+                  <rect x="14" y="3" width="7" height="7" rx="1" />
+                  <rect x="3" y="14" width="7" height="7" rx="1" />
+                  <rect x="14" y="14" width="3" height="3" />
+                  <rect x="18" y="18" width="3" height="3" />
+                </svg>
+              </div>
+
+              <h2 style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                marginBottom: '8px'
+              }}>
+                Escanear QR
+              </h2>
+
+              <p style={{
+                fontSize: '14px',
+                opacity: 0.8,
+                marginBottom: '24px'
+              }}>
+                Escanea el codigo de la reparacion
+              </p>
+
+              <button
+                onClick={startScanner}
+                style={{
+                  background: 'white',
+                  color: 'var(--primary)',
+                  padding: '14px 32px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                  minHeight: '52px'
+                }}
+              >
+                <CameraIcon />
+                Abrir camara
+              </button>
             </div>
 
-            <h2 style={{
-              marginTop: '24px',
-              fontSize: '22px',
-              fontWeight: '600',
-              color: 'var(--text)'
-            }}>
-              Escanear QR
-            </h2>
-
-            <p style={{
-              marginTop: '8px',
-              color: 'var(--text-secondary)',
-              textAlign: 'center',
-              fontSize: '15px'
-            }}>
-              Toca el botón para abrir la cámara
-            </p>
-
-            {/* Recent Scans in idle state */}
+            {/* Recent Scans below */}
             <RecentScans />
           </div>
         ) : loading ? (

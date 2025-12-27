@@ -44,7 +44,7 @@ export default function RecentScans({ refreshKey = 0 }) {
         gap: '6px'
       }}>
         <ClockIcon />
-        Últimos escaneos
+        Ultimos 3
       </h3>
 
       <div style={{

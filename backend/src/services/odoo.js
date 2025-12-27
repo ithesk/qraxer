@@ -279,6 +279,187 @@ class OdooClient {
   }
 
   /**
+   * Buscar cliente/partner por teléfono
+   */
+  async searchPartnerByPhone(phone, userId) {
+    log('Buscando cliente por teléfono:', phone);
+
+    // Limpiar teléfono (solo dígitos)
+    const cleanPhone = phone.replace(/\D/g, '');
+
+    // Buscar en múltiples campos de teléfono
+    const partners = await this.execute('res.partner', 'search_read', [
+      ['|', '|',
+        ['phone', 'ilike', cleanPhone],
+        ['mobile', 'ilike', cleanPhone],
+        ['phone', 'ilike', phone]
+      ],
+    ], {
+      fields: ['id', 'name', 'phone', 'mobile', 'email'],
+      limit: 5,
+    }, userId);
+
+    log('Clientes encontrados:', partners.length);
+    return partners;
+  }
+
+  /**
+   * Crear nuevo cliente/partner
+   */
+  async createPartner(data, userId) {
+    log('Creando nuevo cliente:', data.name);
+
+    const partnerData = {
+      name: data.name,
+      phone: data.phone || false,
+      mobile: data.phone || false,
+      email: data.email || false,
+      customer_rank: 1,
+    };
+
+    const partnerId = await this.execute('res.partner', 'create', [partnerData], {}, userId);
+
+    log('Cliente creado con ID:', partnerId);
+
+    // Obtener el cliente recién creado
+    const partners = await this.execute('res.partner', 'search_read', [
+      [['id', '=', partnerId]],
+    ], {
+      fields: ['id', 'name', 'phone', 'mobile', 'email'],
+      limit: 1,
+    }, userId);
+
+    return partners[0] || { id: partnerId, name: data.name, phone: data.phone };
+  }
+
+  /**
+   * Crear nueva orden de reparación
+   */
+  async createRepairOrder(data, userId, userName) {
+    log('Creando orden de reparación:', data);
+
+    // Construir descripción del problema
+    const problemLabels = {
+      screen: 'Pantalla',
+      battery: 'Batería',
+      charging: 'Carga',
+      power: 'No enciende',
+      software: 'Software',
+      diagnostic: 'Diagnóstico',
+    };
+
+    const problemText = (data.problems || [])
+      .map(p => problemLabels[p] || p)
+      .join(', ');
+
+    const description = [
+      `Marca: ${data.equipment?.brand || 'N/A'}`,
+      `Modelo: ${data.equipment?.model || 'N/A'}`,
+      data.equipment?.serial ? `IMEI/Serial: ${data.equipment.serial}` : null,
+      `Problema: ${problemText || 'No especificado'}`,
+      data.note ? `Nota: ${data.note}` : null,
+    ].filter(Boolean).join('\n');
+
+    const repairData = {
+      partner_id: data.clientId,
+      description: description,
+      state: 'draft',
+      user_id: userId,
+    };
+
+    // Crear la orden
+    const repairId = await this.execute('repair.order', 'create', [repairData], {}, userId);
+
+    log('Orden creada con ID:', repairId);
+
+    // Obtener la orden recién creada para obtener el nombre (código)
+    const repairs = await this.execute('repair.order', 'search_read', [
+      [['id', '=', repairId]],
+    ], {
+      fields: ['id', 'name', 'state', 'partner_id', 'description'],
+      limit: 1,
+    }, userId);
+
+    const repair = repairs[0];
+
+    // Registrar en chatter
+    try {
+      const message = `
+<p><strong>Orden creada via QRaxer Quick Creator</strong></p>
+<ul>
+  <li><strong>Usuario:</strong> ${userName} (ID: ${userId})</li>
+  <li><strong>Fecha:</strong> ${new Date().toISOString()}</li>
+</ul>
+      `.trim();
+
+      await this.execute('repair.order', 'message_post', [repairId], {
+        body: message,
+        message_type: 'notification',
+      }, userId);
+    } catch (e) {
+      log('Warning: No se pudo registrar en chatter:', e.message);
+    }
+
+    return {
+      id: repair.id,
+      name: repair.name,
+      state: repair.state,
+      partner: repair.partner_id ? repair.partner_id[1] : null,
+      description: repair.description,
+    };
+  }
+
+  /**
+   * Obtener órdenes recientes con info del cliente
+   */
+  async getRecentRepairs(userId, days = 7) {
+    log('Obteniendo órdenes recientes, días:', days);
+
+    const dateFrom = new Date();
+    dateFrom.setDate(dateFrom.getDate() - days);
+    const dateStr = dateFrom.toISOString().split('T')[0];
+
+    const repairs = await this.execute('repair.order', 'search_read', [
+      [['create_date', '>=', dateStr]],
+    ], {
+      fields: ['id', 'name', 'state', 'partner_id', 'product_id', 'description', 'create_date', 'user_id'],
+      order: 'create_date desc',
+      limit: 50,
+    }, userId);
+
+    log('Órdenes recientes encontradas:', repairs.length);
+
+    // Obtener info adicional de los partners (teléfono)
+    const partnerIds = repairs
+      .filter(r => r.partner_id)
+      .map(r => r.partner_id[0]);
+
+    if (partnerIds.length > 0) {
+      const uniquePartnerIds = [...new Set(partnerIds)];
+      const partners = await this.execute('res.partner', 'search_read', [
+        [['id', 'in', uniquePartnerIds]],
+      ], {
+        fields: ['id', 'phone', 'mobile'],
+      }, userId);
+
+      // Crear mapa de partner -> teléfono
+      const partnerPhones = {};
+      partners.forEach(p => {
+        partnerPhones[p.id] = p.mobile || p.phone || null;
+      });
+
+      // Agregar teléfono a cada reparación
+      repairs.forEach(r => {
+        if (r.partner_id) {
+          r.partner_phone = partnerPhones[r.partner_id[0]] || null;
+        }
+      });
+    }
+
+    return repairs;
+  }
+
+  /**
    * Obtener estados disponibles para reparación desde Odoo
    */
   async getRepairStates(userId) {

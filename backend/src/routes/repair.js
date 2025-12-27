@@ -164,6 +164,74 @@ router.post('/generate-qr', async (req, res, next) => {
 });
 
 /**
+ * POST /api/repair/create
+ * Crear nueva orden de reparación (Quick Creator)
+ */
+router.post('/create', async (req, res, next) => {
+  try {
+    const { clientId, equipment, problems, note } = req.body;
+    const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    if (!clientId) {
+      throw new AppError('Cliente requerido', 400);
+    }
+
+    console.log('[REPAIR] Creando orden para cliente:', clientId);
+
+    const repair = await odooClient.createRepairOrder(
+      { clientId, equipment, problems, note },
+      userId,
+      userName
+    );
+
+    res.json({
+      success: true,
+      repair: {
+        id: repair.id,
+        name: repair.name,
+        state: repair.state,
+        partner: repair.partner,
+        description: repair.description,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/repair/recent
+ * Obtener órdenes recientes para historial
+ */
+router.get('/recent', async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const days = parseInt(req.query.days) || 7;
+
+    console.log('[REPAIR] Obteniendo órdenes recientes, días:', days);
+
+    const repairs = await odooClient.getRecentRepairs(userId, days);
+
+    res.json({
+      repairs: repairs.map(r => ({
+        id: r.id,
+        name: r.name,
+        state: r.state,
+        partner: r.partner_id ? r.partner_id[1] : null,
+        partnerPhone: r.partner_phone || null,
+        product: r.product_id ? r.product_id[1] : null,
+        assignedUser: r.user_id ? r.user_id[1] : null,
+        description: r.description || '',
+        createdAt: r.create_date,
+      })),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/repair/:code
  * Obtener información de una reparación por código
  */

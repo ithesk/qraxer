@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../services/api';
+import haptics from '../services/haptics';
 
 const QRIcon = () => (
   <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -32,12 +33,18 @@ export default function Login({ onSuccess }) {
     setError('');
     setLoading(true);
 
+    // Initialize haptics on first user interaction (required for iOS audio)
+    haptics.init();
+    haptics.impact();
+
     try {
       const user = await api.login(username, password);
       console.log('[Login] Sesión iniciada:', user);
+      haptics.success();
       onSuccess(user);
     } catch (err) {
       console.error('[Login] Error:', err.message);
+      haptics.error();
       setError(err.message);
     } finally {
       setLoading(false);

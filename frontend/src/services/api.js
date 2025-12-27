@@ -146,6 +146,79 @@ class ApiService {
     return user ? JSON.parse(user) : null;
   }
 
+  // === Quick Creator Methods ===
+
+  /**
+   * Search client by phone
+   */
+  async searchClient(phone) {
+    const response = await this.request('/clients/search', {
+      method: 'POST',
+      body: JSON.stringify({ phone }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al buscar cliente');
+    }
+
+    return data;
+  }
+
+  /**
+   * Create new client
+   */
+  async createClient(name, phone, email = null) {
+    const response = await this.request('/clients/create', {
+      method: 'POST',
+      body: JSON.stringify({ name, phone, email }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al crear cliente');
+    }
+
+    return data;
+  }
+
+  /**
+   * Create repair order
+   */
+  async createRepairOrder(orderData) {
+    const response = await this.request('/repair/create', {
+      method: 'POST',
+      body: JSON.stringify(orderData),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al crear orden');
+    }
+
+    return data;
+  }
+
+  /**
+   * Get recent repairs for history
+   */
+  async getRecentRepairs(days = 7) {
+    const response = await this.request(`/repair/recent?days=${days}`, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener historial');
+    }
+
+    return data;
+  }
+
   /**
    * Check API connection status
    * @returns {Promise<{online: boolean, latency: number}>}

@@ -1,7 +1,7 @@
 {
   "name": "qraxer-pwa",
   "private": true,
-  "version": "1.4.2",
+  "version": "2.0.0-experimental",
   "type": "module",
   "scripts": {
     "dev": "vite",
