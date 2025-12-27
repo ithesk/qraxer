@@ -25,6 +25,8 @@ services:
       - ODOO_DB=${ODOO_DB}
       - ODOO_ADMIN_USER=${ODOO_ADMIN_USER}
       - ODOO_ADMIN_PASSWORD=${ODOO_ADMIN_PASSWORD}
+      - ODOO_PRODUCTS_URL=${ODOO_PRODUCTS_URL:-https://ncf.ithesk.com}
+      - ODOO_PRODUCTS_DB=${ODOO_PRODUCTS_DB:-nfcithesk}
       - QR_HMAC_SECRET=${QR_HMAC_SECRET}
       - QR_EXPIRATION_MINUTES=${QR_EXPIRATION_MINUTES:-60}
       - ALLOW_SIMPLE_QR=${ALLOW_SIMPLE_QR:-true}
@@ -34,11 +36,11 @@ services:
     networks:
       - qraxer-v2-network
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     logging:
       driver: "json-file"
       options:
