@@ -1,11 +1,25 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { config } from '../config/env.js';
 import { odooClient } from '../services/odoo.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { authMiddleware } from '../middleware/auth.js';
 
 const router = Router();
+
+// Encriptación para guardar password en JWT (para re-auth en Odoo Products)
+const ENCRYPTION_KEY = crypto.scryptSync(config.jwt.secret, 'salt', 32);
+const IV_LENGTH = 16;
+
+function encryptPassword(password) {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(password, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  return iv.toString('hex') + ':' + encrypted;
+}
+
 
 /**
  * POST /api/auth/login
@@ -33,12 +47,13 @@ router.post('/login', async (req, res, next) => {
       throw new AppError('Usuario no autorizado para usar esta aplicación', 403);
     }
 
-    // Generar JWT (NO almacenamos credenciales de Odoo)
+    // Generar JWT con password encriptado para re-auth en Odoo Products
     const tokenPayload = {
       userId: user.uid,
       username: user.username,
       name: user.name,
       roles: ['scanner'],
+      odooPassword: encryptPassword(password), // Encriptado para Odoo Products
     };
 
     const accessToken = jwt.sign(tokenPayload, config.jwt.secret, {

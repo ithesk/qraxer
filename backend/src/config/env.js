@@ -29,13 +29,19 @@ export const config = {
     refreshExpiresIn: optional('JWT_REFRESH_EXPIRES_IN', '7d'),
   },
 
-  // Odoo
+  // Odoo (Reparaciones)
   odoo: {
     url: required('ODOO_URL'),
     db: required('ODOO_DB'),
     adminUser: required('ODOO_ADMIN_USER'),
     adminPassword: required('ODOO_ADMIN_PASSWORD'),
     authorizedGroup: optional('ODOO_AUTHORIZED_GROUP', 'repair_scanner_user'),
+  },
+
+  // Odoo Products (NCF - otro servidor)
+  odooProducts: {
+    url: optional('ODOO_PRODUCTS_URL', 'https://ncf.ithesk.com'),
+    db: optional('ODOO_PRODUCTS_DB', 'nfcithesk'),
   },
 
   // QR Security

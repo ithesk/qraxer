@@ -495,48 +495,6 @@ class OdooClient {
     ];
   }
 
-  /**
-   * Buscar producto por código de barras
-   */
-  async getProductByBarcode(barcode, userId) {
-    log('Buscando producto por barcode');
-
-    const products = await this.execute('product.product', 'search_read', [
-      [['barcode', '=', barcode]],
-    ], {
-      fields: ['id', 'name', 'barcode', 'default_code', 'list_price', 'standard_price', 'qty_available', 'categ_id', 'uom_id'],
-      limit: 1,
-    }, userId);
-
-    if (!products || products.length === 0) {
-      log('Producto no encontrado con barcode:', barcode);
-      return null;
-    }
-
-    log('Producto encontrado:', products[0].name);
-    return products[0];
-  }
-
-  /**
-   * Buscar productos por nombre o referencia
-   */
-  async searchProducts(query, userId) {
-    log('Buscando productos');
-
-    const products = await this.execute('product.product', 'search_read', [
-      ['|', '|',
-        ['name', 'ilike', query],
-        ['default_code', 'ilike', query],
-        ['barcode', 'ilike', query]
-      ],
-    ], {
-      fields: ['id', 'name', 'barcode', 'default_code', 'list_price', 'qty_available'],
-      limit: 20,
-    }, userId);
-
-    log('Productos encontrados:', products.length);
-    return products;
-  }
 }
 
 export const odooClient = new OdooClient();
