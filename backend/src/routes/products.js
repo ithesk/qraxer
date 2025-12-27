@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { odooProductsClient } from '../services/odooProducts.js';
 import { AppError } from '../middleware/errorHandler.js';
-import { logger } from '../utils/logger.js';
 
 const router = Router();
 
@@ -10,57 +9,10 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
- * Middleware para obtener/crear sesión en Odoo Products
- * Usa las mismas credenciales del usuario pero contra el otro Odoo
- */
-async function ensureProductsSession(req, res, next) {
-  try {
-    const userId = req.user.userId;
-
-    // Verificar si ya tenemos sesión para este usuario
-    let session = odooProductsClient.getUserSession(userId);
-
-    if (session && session.sessionId) {
-      req.productsSessionId = session.sessionId;
-      return next();
-    }
-
-    // No tenemos sesión, necesitamos autenticar
-    // Las credenciales se guardaron en el JWT cuando el usuario hizo login
-    const username = req.user.username;
-    const password = req.user.odooPassword; // Guardado encriptado en el token
-
-    if (!password) {
-      throw new AppError('Sesión de productos expirada. Inicie sesión nuevamente.', 401);
-    }
-
-    logger.debug('Autenticando en Odoo Products');
-
-    const authResult = await odooProductsClient.authenticate(username, password);
-
-    if (!authResult) {
-      throw new AppError('No se pudo autenticar en el servidor de productos', 401);
-    }
-
-    // Guardar sesión asociada al userId original (no al uid de products)
-    odooProductsClient.setUserSession(userId, {
-      uid: authResult.uid,
-      sessionId: authResult.sessionId,
-      username: username,
-    });
-
-    req.productsSessionId = authResult.sessionId;
-    next();
-  } catch (error) {
-    next(error);
-  }
-}
-
-/**
  * GET /api/products/barcode/:code
  * Buscar producto por código de barras
  */
-router.get('/barcode/:code', ensureProductsSession, async (req, res, next) => {
+router.get('/barcode/:code', async (req, res, next) => {
   try {
     const { code } = req.params;
 
@@ -68,9 +20,7 @@ router.get('/barcode/:code', ensureProductsSession, async (req, res, next) => {
       throw new AppError('Código de barras requerido', 400);
     }
 
-    logger.debug('Buscando producto por barcode en NCF');
-
-    const product = await odooProductsClient.getProductByBarcode(code, req.productsSessionId);
+    const product = await odooProductsClient.getProductByBarcode(code);
 
     if (product) {
       res.json({
@@ -102,7 +52,7 @@ router.get('/barcode/:code', ensureProductsSession, async (req, res, next) => {
  * POST /api/products/search
  * Buscar productos por nombre o referencia
  */
-router.post('/search', ensureProductsSession, async (req, res, next) => {
+router.post('/search', async (req, res, next) => {
   try {
     const { query } = req.body;
 
@@ -110,9 +60,7 @@ router.post('/search', ensureProductsSession, async (req, res, next) => {
       throw new AppError('Búsqueda debe tener al menos 2 caracteres', 400);
     }
 
-    logger.debug('Buscando productos en NCF');
-
-    const products = await odooProductsClient.searchProducts(query, req.productsSessionId);
+    const products = await odooProductsClient.searchProducts(query);
 
     res.json({
       products: products.map(p => ({

@@ -42,6 +42,8 @@ export const config = {
   odooProducts: {
     url: optional('ODOO_PRODUCTS_URL', 'https://ncf.ithesk.com'),
     db: optional('ODOO_PRODUCTS_DB', 'nfcithesk'),
+    adminUser: optional('ODOO_PRODUCTS_ADMIN_USER', ''),
+    adminPassword: optional('ODOO_PRODUCTS_ADMIN_PASSWORD', ''),
   },
 
   // QR Security

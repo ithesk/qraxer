@@ -14,22 +14,22 @@ function logError(...args) {
 }
 
 /**
- * Almacén de sesiones de usuarios para Odoo Products
- */
-const userSessions = new Map();
-
-/**
  * Cliente JSON-RPC para Odoo Products (NCF)
  * Servidor separado para consulta de productos
+ * Usa credenciales de admin configuradas en env
  */
 class OdooProductsClient {
   constructor() {
     this.url = config.odooProducts.url;
     this.db = config.odooProducts.db;
+    this.adminUser = config.odooProducts.adminUser;
+    this.adminPassword = config.odooProducts.adminPassword;
+    this.adminSession = null;
 
     log('Inicializando cliente Odoo Products:');
     log('  URL:', this.url);
     log('  DB:', this.db);
+    log('  Admin User:', this.adminUser ? '***' : 'No configurado');
   }
 
   /**
@@ -94,95 +94,95 @@ class OdooProductsClient {
   }
 
   /**
-   * Autenticar usuario contra Odoo Products
-   * Usa las mismas credenciales que el usuario usó en el Odoo principal
+   * Autenticar con credenciales de admin y cachear la sesión
    */
-  async authenticate(username, password) {
-    log('Autenticando usuario en Odoo Products');
+  async ensureAdminSession() {
+    // Si ya tenemos sesión válida, usarla
+    if (this.adminSession) {
+      log('Usando sesión de admin existente');
+      return this.adminSession;
+    }
+
+    if (!this.adminUser || !this.adminPassword) {
+      throw new AppError('Credenciales de Odoo Products no configuradas', 500);
+    }
+
+    log('Autenticando admin en Odoo Products');
 
     try {
       const { result, sessionId } = await this.jsonRpc('/web/session/authenticate', {
         db: this.db,
-        login: username,
-        password: password,
+        login: this.adminUser,
+        password: this.adminPassword,
       });
 
-      log('Auth result keys:', Object.keys(result || {}));
-
       if (!result || !result.uid || result.uid === false) {
-        log('Auth failed: No UID en respuesta');
-        return null;
+        logError('Admin auth failed: No UID en respuesta');
+        throw new AppError('No se pudo autenticar en Odoo Products', 500);
       }
 
-      log('Auth success: UID =', result.uid);
+      log('Admin auth success: UID =', result.uid);
 
-      const userSession = {
+      this.adminSession = {
         uid: result.uid,
         sessionId: sessionId,
-        username: username,
-        name: result.name,
       };
-      userSessions.set(result.uid, userSession);
-      log('Sesión guardada para UID:', result.uid);
 
-      return {
-        uid: result.uid,
-        username: result.username || username,
-        name: result.name,
-        sessionId: sessionId,
-      };
+      return this.adminSession;
     } catch (error) {
-      logError('Auth exception:', error.message);
+      logError('Admin auth exception:', error.message);
       throw error;
     }
   }
 
   /**
-   * Obtener sesión de un usuario
+   * Invalidar sesión de admin (para reconectar)
    */
-  getUserSession(odooProductsUid) {
-    return userSessions.get(odooProductsUid);
+  clearAdminSession() {
+    this.adminSession = null;
+    log('Sesión de admin limpiada');
   }
 
   /**
-   * Guardar sesión externa (cuando se autentica desde otro lado)
+   * Ejecutar método en modelo de Odoo usando sesión de admin
    */
-  setUserSession(uid, session) {
-    userSessions.set(uid, session);
-  }
-
-  /**
-   * Eliminar sesión de usuario
-   */
-  removeUserSession(uid) {
-    userSessions.delete(uid);
-    log('Sesión eliminada para UID:', uid);
-  }
-
-  /**
-   * Ejecutar método en modelo de Odoo usando sesión del usuario
-   */
-  async execute(model, method, args = [], kwargs = {}, sessionId) {
+  async execute(model, method, args = [], kwargs = {}) {
     log(`Execute: ${model}.${method}`);
 
-    if (!sessionId) {
-      throw new AppError('Sesión de Odoo Products no encontrada. Inicie sesión nuevamente.', 401);
+    // Asegurar que tenemos sesión de admin
+    const session = await this.ensureAdminSession();
+
+    try {
+      const { result } = await this.jsonRpc('/web/dataset/call_kw', {
+        model,
+        method,
+        args,
+        kwargs,
+      }, session.sessionId);
+
+      return result;
+    } catch (error) {
+      // Si la sesión expiró, limpiarla y reintentar
+      if (error.message.includes('Session') || error.message.includes('Access')) {
+        log('Sesión posiblemente expirada, reintentando...');
+        this.clearAdminSession();
+        const newSession = await this.ensureAdminSession();
+        const { result } = await this.jsonRpc('/web/dataset/call_kw', {
+          model,
+          method,
+          args,
+          kwargs,
+        }, newSession.sessionId);
+        return result;
+      }
+      throw error;
     }
-
-    const { result } = await this.jsonRpc('/web/dataset/call_kw', {
-      model,
-      method,
-      args,
-      kwargs,
-    }, sessionId);
-
-    return result;
   }
 
   /**
    * Buscar producto por código de barras
    */
-  async getProductByBarcode(barcode, sessionId) {
+  async getProductByBarcode(barcode) {
     log('Buscando producto por barcode');
 
     const products = await this.execute('product.product', 'search_read', [
@@ -190,7 +190,7 @@ class OdooProductsClient {
     ], {
       fields: ['id', 'name', 'barcode', 'default_code', 'list_price', 'standard_price', 'qty_available', 'categ_id', 'uom_id'],
       limit: 1,
-    }, sessionId);
+    });
 
     if (!products || products.length === 0) {
       log('Producto no encontrado con barcode:', barcode);
@@ -204,7 +204,7 @@ class OdooProductsClient {
   /**
    * Buscar productos por nombre o referencia
    */
-  async searchProducts(query, sessionId) {
+  async searchProducts(query) {
     log('Buscando productos');
 
     const products = await this.execute('product.product', 'search_read', [
@@ -216,7 +216,7 @@ class OdooProductsClient {
     ], {
       fields: ['id', 'name', 'barcode', 'default_code', 'list_price', 'qty_available'],
       limit: 20,
-    }, sessionId);
+    });
 
     log('Productos encontrados:', products.length);
     return products;
