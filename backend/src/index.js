@@ -44,8 +44,9 @@ app.use('/api/products', productsRoutes);
 // Error handling
 app.use(errorHandler);
 
-// Start server
-app.listen(config.port, () => {
+// Start server - bind to 0.0.0.0 for network access
+app.listen(config.port, '0.0.0.0', () => {
   console.log(`QRaxer API running on port ${config.port}`);
   console.log(`Environment: ${config.nodeEnv}`);
+  console.log(`Listening on 0.0.0.0:${config.port} (accessible from network)`);
 });
