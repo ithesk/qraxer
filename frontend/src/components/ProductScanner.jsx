@@ -67,6 +67,8 @@ export default function ProductScanner() {
           facingMode: 'environment',
           width: { min: 640, ideal: 1280 },
           height: { min: 480, ideal: 720 },
+          // Forzar autofocus continuo para iOS
+          focusMode: 'continuous',
         },
       },
       locator: {
@@ -96,9 +98,38 @@ export default function ProductScanner() {
         return;
       }
       Quagga.start();
+
+      // Aplicar autofocus continuo después de iniciar (para iOS)
+      applyFocusMode();
     });
 
     Quagga.onDetected(handleBarcodeDetected);
+  };
+
+  // Aplicar modo de enfoque continuo para mejor soporte en iPhone
+  const applyFocusMode = () => {
+    try {
+      const video = scannerRef.current?.querySelector('video');
+      if (video && video.srcObject) {
+        const track = video.srcObject.getVideoTracks()[0];
+        if (track) {
+          const capabilities = track.getCapabilities();
+          console.log('[ProductScanner] Camera capabilities:', capabilities);
+
+          if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            track.applyConstraints({
+              advanced: [{ focusMode: 'continuous' }]
+            }).then(() => {
+              console.log('[ProductScanner] Autofocus continuo aplicado');
+            }).catch(e => {
+              console.log('[ProductScanner] No se pudo aplicar focusMode:', e.message);
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.log('[ProductScanner] Error aplicando focus:', e.message);
+    }
   };
 
   const startScanner = () => {
