@@ -495,6 +495,26 @@ export default function History() {
               );
             })()}
 
+            {/* Descripcion */}
+            {selectedRepair.description && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '500' }}>
+                  DESCRIPCION
+                </div>
+                <div style={{
+                  padding: '12px 14px',
+                  background: 'var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '14px',
+                  lineHeight: '1.5',
+                  whiteSpace: 'pre-line',
+                  color: 'var(--text-secondary)',
+                }}>
+                  {selectedRepair.description}
+                </div>
+              </div>
+            )}
+
             {/* Asignado a */}
             {selectedRepair.assignedUser && (
               <div style={{ marginBottom: '16px' }}>
