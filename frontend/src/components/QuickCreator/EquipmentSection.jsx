@@ -1,9 +1,16 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 
-// Check icon
+// Icons
 const CheckIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
     <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+const SmartphoneIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+    <line x1="12" y1="18" x2="12.01" y2="18" />
   </svg>
 );
 
@@ -236,13 +243,32 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   const isCompleted = equipment.model && equipment.model.length > 2;
 
   return (
-    <div className="section" style={{ opacity: disabled ? 0.5 : 1 }}>
-      <div className="section-header">
-        <div className="section-title">
-          <span className={`section-number ${isCompleted ? 'completed' : ''}`}>
-            {isCompleted ? <CheckIcon /> : '2'}
-          </span>
-          Equipo
+    <div className="section">
+      <div className="section-header" style={{ marginBottom: '16px' }}>
+        <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: isCompleted
+              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+              : disabled ? 'var(--border)' : 'var(--border-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: isCompleted ? 'white' : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>
+            {isCompleted ? <CheckIcon /> : <SmartphoneIcon />}
+          </div>
+          <div>
+            <div style={{ fontWeight: '600', fontSize: '15px', color: disabled ? 'var(--text-muted)' : 'var(--text)' }}>
+              Equipo
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {isCompleted ? equipment.brand : 'Modelo del dispositivo'}
+            </div>
+          </div>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ import { SkeletonClientCard } from '../Skeleton';
 
 // Icons
 const CheckIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );
@@ -18,10 +18,23 @@ const UserIcon = () => (
   </svg>
 );
 
+const PhoneIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
 const PlusIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
     <line x1="12" y1="5" x2="12" y2="19" />
     <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
 
@@ -132,18 +145,37 @@ export default function ClientSection({ client, onClientSelect }) {
 
   return (
     <div className="section">
-      <div className="section-header">
-        <div className="section-title">
-          <span className={`section-number ${isCompleted ? 'completed' : ''}`}>
-            {isCompleted ? <CheckIcon /> : '1'}
-          </span>
-          Cliente
+      <div className="section-header" style={{ marginBottom: '16px' }}>
+        <div className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: '10px',
+            background: isCompleted
+              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+              : 'var(--border-light)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: isCompleted ? 'white' : 'var(--text-muted)',
+            transition: 'all 0.2s',
+          }}>
+            {isCompleted ? <CheckIcon /> : <UserIcon />}
+          </div>
+          <div>
+            <div style={{ fontWeight: '600', fontSize: '15px', color: 'var(--text)' }}>
+              Cliente
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {isCompleted ? 'Seleccionado' : 'Buscar por teléfono'}
+            </div>
+          </div>
         </div>
         {isCompleted && (
           <button
             className="btn-ghost"
             onClick={handleClearClient}
-            style={{ padding: '8px 12px', minHeight: '36px', fontSize: '14px' }}
+            style={{ padding: '8px 12px', minHeight: '36px', fontSize: '13px' }}
           >
             Cambiar
           </button>
@@ -192,17 +224,28 @@ export default function ClientSection({ client, onClientSelect }) {
       {/* Form when no client selected */}
       {!client && (
         <>
-          {/* Phone input */}
+          {/* Phone input con icono */}
           <div style={{ position: 'relative' }}>
+            <div style={{
+              position: 'absolute',
+              left: '14px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: 'var(--text-muted)',
+              pointerEvents: 'none',
+            }}>
+              <PhoneIcon />
+            </div>
             <input
               type="tel"
               inputMode="numeric"
-              placeholder="Teléfono (10 dígitos)"
+              placeholder="Teléfono del cliente"
               value={phone}
               onChange={handlePhoneChange}
               maxLength={10}
               style={{
-                paddingRight: isSearching ? '50px' : '16px',
+                paddingLeft: '44px',
+                paddingRight: isSearching ? '90px' : '50px',
               }}
             />
             {isSearching && (
@@ -211,11 +254,14 @@ export default function ClientSection({ client, onClientSelect }) {
                 right: '16px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                fontSize: '12px',
-                color: 'var(--text-muted)',
-                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
               }}>
-                Buscando...
+                <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: '500' }}>
+                  Buscando
+                </span>
               </div>
             )}
             {phone.length > 0 && phone.length < 10 && !isSearching && (
@@ -225,10 +271,24 @@ export default function ClientSection({ client, onClientSelect }) {
                 top: '50%',
                 transform: 'translateY(-50%)',
                 fontSize: '12px',
-                color: 'var(--text-muted)',
-                fontWeight: '500',
+                color: 'var(--primary)',
+                fontWeight: '600',
+                background: 'var(--primary-light)',
+                padding: '4px 8px',
+                borderRadius: '6px',
               }}>
                 {phone.length}/10
+              </div>
+            )}
+            {phone.length === 10 && !isSearching && (
+              <div style={{
+                position: 'absolute',
+                right: '16px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--success)',
+              }}>
+                <SearchIcon />
               </div>
             )}
           </div>

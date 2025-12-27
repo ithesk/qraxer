@@ -10,6 +10,14 @@ import OrderConfirmation from './OrderConfirmation';
 // Generate temporary ID
 const generateTempId = () => `TMP-${Date.now().toString(36).toUpperCase().slice(-6)}`;
 
+// Icons
+const ClipboardIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+  </svg>
+);
+
 export default function QuickCreator() {
   // Refs
   const equipmentRef = useRef(null);
@@ -124,17 +132,47 @@ export default function QuickCreator() {
   // Show form
   return (
     <div className="fade-in">
-      <h2 style={{
-        fontSize: '22px',
-        fontWeight: '700',
+      {/* Header con icono */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px',
         marginBottom: '20px',
-        color: 'var(--text)',
       }}>
-        Crear Orden Rapida
-      </h2>
+        <div style={{
+          width: '44px',
+          height: '44px',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: 'white',
+          flexShrink: 0,
+        }}>
+          <ClipboardIcon />
+        </div>
+        <div>
+          <h2 style={{
+            fontSize: '20px',
+            fontWeight: '700',
+            color: 'var(--text)',
+            margin: 0,
+          }}>
+            Nueva Orden
+          </h2>
+          <p style={{
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+            margin: 0,
+          }}>
+            Completa los 3 pasos
+          </p>
+        </div>
+      </div>
 
-      {/* Form Card */}
-      <div className="card" style={{ padding: '20px' }}>
+      {/* Sección 1: Cliente */}
+      <div className="card" style={{ padding: '20px', marginBottom: '12px' }}>
         <ClientSection
           client={client}
           onClientSelect={(selectedClient) => {
@@ -147,18 +185,29 @@ export default function QuickCreator() {
             }, 100);
           }}
         />
+      </div>
 
-        <div className="divider" />
-
+      {/* Sección 2: Equipo */}
+      <div className="card" style={{
+        padding: '20px',
+        marginBottom: '12px',
+        opacity: !client ? 0.6 : 1,
+        transition: 'opacity 0.2s',
+      }}>
         <EquipmentSection
           ref={equipmentRef}
           equipment={equipment}
           onChange={setEquipment}
           disabled={!client}
         />
+      </div>
 
-        <div className="divider" />
-
+      {/* Sección 3: Problema */}
+      <div className="card" style={{
+        padding: '20px',
+        opacity: (!client || !equipment.brand) ? 0.6 : 1,
+        transition: 'opacity 0.2s',
+      }}>
         <ProblemSection
           problems={problems}
           note={note}
