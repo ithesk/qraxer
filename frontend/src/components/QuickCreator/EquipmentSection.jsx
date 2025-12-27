@@ -14,6 +14,49 @@ const SmartphoneIcon = () => (
   </svg>
 );
 
+// Estado del equipo icons
+const PowerOnIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const PowerOffIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="8" y1="8" x2="16" y2="16" />
+  </svg>
+);
+
+const LockIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </svg>
+);
+
+const UnlockIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+  </svg>
+);
+
+const EyeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const EyeOffIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+    <line x1="1" y1="1" x2="23" y2="23" />
+  </svg>
+);
+
 // Popular device models for autocomplete
 const DEVICE_MODELS = [
   // Apple iPhone
@@ -171,8 +214,16 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   const [inputValue, setInputValue] = useState(equipment.model || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredModels, setFilteredModels] = useState([]);
+  const [showPassword, setShowPassword] = useState(false);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
+
+  // Estado del equipo: null = no seleccionado, 'on' = encendido, 'off' = apagado
+  const deviceStatus = equipment.status || null;
+  // Tiene contraseña: null = no preguntado, true/false
+  const hasPassword = equipment.hasPassword;
+  // Contraseña del dispositivo
+  const password = equipment.password || '';
 
   // Exponer método focus al padre
   useImperativeHandle(ref, () => ({
@@ -240,7 +291,30 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
     setShowSuggestions(true);
   };
 
-  const isCompleted = equipment.model && equipment.model.length > 2;
+  const handleStatusChange = (status) => {
+    onChange({ ...equipment, status });
+  };
+
+  const handleHasPasswordChange = (value) => {
+    onChange({
+      ...equipment,
+      hasPassword: value,
+      password: value ? equipment.password : '' // Limpiar contraseña si no tiene
+    });
+  };
+
+  const handlePasswordChange = (e) => {
+    onChange({ ...equipment, password: e.target.value });
+  };
+
+  // El modelo está seleccionado cuando tiene marca (viene del autocomplete)
+  const modelSelected = equipment.model && equipment.brand;
+  // El flujo de estado está completo
+  const statusCompleted = deviceStatus !== null;
+  // El flujo de contraseña está completo (solo si está encendido)
+  const passwordFlowCompleted = deviceStatus === 'off' || hasPassword !== undefined;
+  // Todo el equipo está completo
+  const isCompleted = modelSelected && statusCompleted && passwordFlowCompleted;
 
   return (
     <div className="section">
@@ -353,6 +427,206 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
           marginBottom: '12px'
         }}>
           Marca: <strong>{equipment.brand}</strong>
+        </div>
+      )}
+
+      {/* Flujo guiado: Estado del equipo (aparece después de seleccionar modelo) */}
+      {modelSelected && (
+        <div className="fade-in" style={{
+          background: 'var(--bg)',
+          borderRadius: '12px',
+          padding: '16px',
+          marginBottom: '16px',
+          border: '1px solid var(--border-light)',
+        }}>
+          {/* Pregunta 1: ¿Está encendido o apagado? */}
+          <div style={{ marginBottom: deviceStatus === 'on' ? '16px' : 0 }}>
+            <div style={{
+              fontSize: '14px',
+              fontWeight: '600',
+              color: 'var(--text)',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              {deviceStatus !== null ? (
+                <span style={{ color: 'var(--success)' }}><CheckIcon /></span>
+              ) : null}
+              ¿El equipo está encendido?
+            </div>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => handleStatusChange('on')}
+                disabled={disabled}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '12px 16px',
+                  background: deviceStatus === 'on'
+                    ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                    : 'var(--card-bg)',
+                  border: deviceStatus === 'on' ? 'none' : '1px solid var(--border)',
+                  borderRadius: '10px',
+                  color: deviceStatus === 'on' ? 'white' : 'var(--text)',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: disabled ? 0.5 : 1,
+                }}
+              >
+                <PowerOnIcon />
+                Encendido
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStatusChange('off')}
+                disabled={disabled}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  padding: '12px 16px',
+                  background: deviceStatus === 'off'
+                    ? 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'
+                    : 'var(--card-bg)',
+                  border: deviceStatus === 'off' ? 'none' : '1px solid var(--border)',
+                  borderRadius: '10px',
+                  color: deviceStatus === 'off' ? 'white' : 'var(--text)',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                  opacity: disabled ? 0.5 : 1,
+                }}
+              >
+                <PowerOffIcon />
+                Apagado
+              </button>
+            </div>
+          </div>
+
+          {/* Pregunta 2: ¿Tiene contraseña? (solo si está encendido) */}
+          {deviceStatus === 'on' && (
+            <div className="fade-in" style={{
+              borderTop: '1px solid var(--border-light)',
+              paddingTop: '16px',
+            }}>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: '600',
+                color: 'var(--text)',
+                marginBottom: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                {hasPassword !== undefined ? (
+                  <span style={{ color: 'var(--success)' }}><CheckIcon /></span>
+                ) : null}
+                ¿Tiene contraseña de bloqueo?
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: hasPassword ? '12px' : 0 }}>
+                <button
+                  type="button"
+                  onClick={() => handleHasPasswordChange(true)}
+                  disabled={disabled}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '12px 16px',
+                    background: hasPassword === true
+                      ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
+                      : 'var(--card-bg)',
+                    border: hasPassword === true ? 'none' : '1px solid var(--border)',
+                    borderRadius: '10px',
+                    color: hasPassword === true ? 'white' : 'var(--text)',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: disabled ? 0.5 : 1,
+                  }}
+                >
+                  <LockIcon />
+                  Sí
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleHasPasswordChange(false)}
+                  disabled={disabled}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    padding: '12px 16px',
+                    background: hasPassword === false
+                      ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                      : 'var(--card-bg)',
+                    border: hasPassword === false ? 'none' : '1px solid var(--border)',
+                    borderRadius: '10px',
+                    color: hasPassword === false ? 'white' : 'var(--text)',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: disabled ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s',
+                    opacity: disabled ? 0.5 : 1,
+                  }}
+                >
+                  <UnlockIcon />
+                  No
+                </button>
+              </div>
+
+              {/* Campo de contraseña (solo si tiene contraseña) */}
+              {hasPassword === true && (
+                <div className="fade-in" style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Ingresa la contraseña"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    disabled={disabled}
+                    style={{
+                      paddingRight: '48px',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
