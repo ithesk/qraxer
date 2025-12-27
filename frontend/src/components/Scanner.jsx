@@ -4,6 +4,7 @@ import { api } from '../services/api';
 import { toast } from './Toast';
 import RecentScans from './RecentScans';
 import { scanHistory } from '../services/scanHistory';
+import audio from '../services/audio';
 
 const CameraIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -130,6 +131,9 @@ export default function Scanner({ onScan }) {
   };
 
   const startScanner = () => {
+    // Inicializar audio en interacción del usuario (requerido para iOS)
+    audio.init();
+
     setError('');
     setScanning(true);
   };
@@ -157,9 +161,10 @@ export default function Scanner({ onScan }) {
   const handleQrSuccess = async (decodedText) => {
     console.log('[Scanner] QR detectado:', decodedText);
 
-    // Flash verde visual + vibración (feedback inmediato < 300ms)
+    // Flash verde visual + vibración + audio (feedback inmediato < 300ms)
     setShowFlash(true);
     vibrate(30);
+    audio.scan();
     setTimeout(() => setShowFlash(false), 150);
 
     stopScanner();
@@ -180,13 +185,15 @@ export default function Scanner({ onScan }) {
       });
       console.log('[Scanner] Historial guardado');
 
-      // Vibración de éxito
+      // Feedback de éxito
       vibrate(100);
+      audio.success();
       onScan(data, decodedText);
     } catch (err) {
       console.error('[Scanner] Error:', err.message);
-      // Vibración de error (más larga)
+      // Feedback de error
       vibrate([200, 100, 200]);
+      audio.error();
       setError(err.message);
       toast.error(err.message);
       setLoading(false);

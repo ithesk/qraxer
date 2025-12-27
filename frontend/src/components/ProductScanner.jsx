@@ -3,6 +3,7 @@ import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/
 import { api } from '../services/api';
 import { toast } from './Toast';
 import haptics from '../services/haptics';
+import audio from '../services/audio';
 
 // Barcode icon
 const BarcodeIcon = ({ size = 40 }) => (
@@ -89,6 +90,9 @@ export default function ProductScanner() {
   };
 
   const startScanner = () => {
+    // Inicializar audio en interacción del usuario (requerido para iOS)
+    audio.init();
+
     setError('');
     setProduct(null);
     setScanning(true);
@@ -113,7 +117,10 @@ export default function ProductScanner() {
     if (code === lastCode) return;
     setLastCode(code);
 
+    // Feedback inmediato: haptic + audio
     haptics.impact();
+    audio.scan();
+
     stopScanner();
     setLoading(true);
     setError('');
@@ -123,14 +130,17 @@ export default function ProductScanner() {
 
       if (data.found) {
         haptics.success();
+        audio.success();
         setProduct(data.product);
       } else {
         haptics.error();
+        audio.error();
         setError(`Producto no encontrado: ${code}`);
         toast.error('Producto no encontrado');
       }
     } catch (err) {
       haptics.error();
+      audio.error();
       setError(err.message);
       toast.error(err.message);
     } finally {

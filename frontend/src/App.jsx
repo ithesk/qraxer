@@ -12,7 +12,7 @@ import QuickCreator from './components/QuickCreator/QuickCreator';
 import History from './components/History';
 import ProductScanner from './components/ProductScanner';
 
-const APP_VERSION = '2.1.4-exp';
+const APP_VERSION = '2.1.5-exp';
 
 // Scanner tab sub-views
 const SCANNER_VIEWS = {
