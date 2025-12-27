@@ -56,34 +56,23 @@ export default function ProductScanner() {
         BarcodeFormat.UPC_E,
         BarcodeFormat.CODE_128,
         BarcodeFormat.CODE_39,
-        BarcodeFormat.CODE_93,
+        BarcodeFormat.QR_CODE,
       ]);
-      hints.set(DecodeHintType.TRY_HARDER, true);
 
       readerRef.current = new BrowserMultiFormatReader(hints);
 
-      // Configurar atributos del video para iOS
-      videoRef.current.setAttribute('playsinline', 'true');
-      videoRef.current.muted = true;
-      videoRef.current.autoplay = true;
-
-      // Obtener cámaras disponibles
-      const devices = await readerRef.current.listVideoInputDevices();
-
-      // Preferir cámara trasera
-      let selectedDevice = devices[0];
-      for (const device of devices) {
-        if (device.label.toLowerCase().includes('back') ||
-            device.label.toLowerCase().includes('rear') ||
-            device.label.toLowerCase().includes('environment')) {
-          selectedDevice = device;
-          break;
+      // Constraints optimizados para escaneo de códigos de barras
+      const constraints = {
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         }
-      }
+      };
 
-      // Iniciar escaneo continuo
-      await readerRef.current.decodeFromVideoDevice(
-        selectedDevice?.deviceId || undefined,
+      // Usar decodeFromConstraints (más confiable que decodeFromVideoDevice)
+      await readerRef.current.decodeFromConstraints(
+        constraints,
         videoRef.current,
         (result, err) => {
           if (result) {
