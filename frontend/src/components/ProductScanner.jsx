@@ -55,8 +55,20 @@ export default function ProductScanner() {
     }
   };
 
+  // Detectar si es iOS para aplicar configuraciones específicas
+  const isIOS = () => {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  };
+
   const initScanner = () => {
     if (!scannerRef.current) return;
+
+    // Configuración optimizada para iOS/iPhone
+    // Referencias:
+    // - https://github.com/ericblade/quagga2/discussions/504
+    // - https://github.com/grocy/grocy/pull/844
+    const iosOptimized = isIOS();
 
     Quagga.init({
       inputStream: {
@@ -65,31 +77,44 @@ export default function ProductScanner() {
         target: scannerRef.current,
         constraints: {
           facingMode: 'environment',
-          width: { min: 640, ideal: 1280 },
-          height: { min: 480, ideal: 720 },
+          // iOS funciona mejor con resoluciones específicas
+          width: iosOptimized ? { ideal: 1280 } : { min: 640, ideal: 1280 },
+          height: iosOptimized ? { ideal: 720 } : { min: 480, ideal: 720 },
+          // Aspect ratio ayuda en iOS
+          aspectRatio: { min: 1, max: 2 },
           // Forzar autofocus continuo para iOS
           focusMode: 'continuous',
         },
+        // Área de escaneo - más grande para mejor detección
+        area: {
+          top: '20%',
+          right: '10%',
+          left: '10%',
+          bottom: '20%',
+        },
       },
       locator: {
-        patchSize: 'medium',
+        // Para iOS: patchSize 'small' y halfSample true mejoran rendimiento
+        patchSize: iosOptimized ? 'small' : 'medium',
         halfSample: true,
       },
-      numOfWorkers: navigator.hardwareConcurrency || 4,
-      frequency: 10,
+      // numOfWorkers deshabilitado - el mantenedor de Quagga2 indica que no es útil
+      // y puede causar problemas
+      numOfWorkers: 0,
+      // Frecuencia de escaneo - 5 es más estable en iOS
+      frequency: iosOptimized ? 5 : 10,
       decoder: {
+        // Solo incluir los formatos que realmente usamos (mejor rendimiento)
         readers: [
           'ean_reader',
           'ean_8_reader',
           'upc_reader',
           'upc_e_reader',
           'code_128_reader',
-          'code_39_reader',
-          'code_93_reader',
-          'codabar_reader',
         ],
       },
-      locate: true,
+      // locate: false puede mejorar rendimiento si el código está centrado
+      locate: !iosOptimized,
     }, (err) => {
       if (err) {
         console.error('Quagga init error:', err);
@@ -100,7 +125,8 @@ export default function ProductScanner() {
       Quagga.start();
 
       // Aplicar autofocus continuo después de iniciar (para iOS)
-      applyFocusMode();
+      // Pequeño delay para que el video esté listo
+      setTimeout(() => applyFocusMode(), 500);
     });
 
     Quagga.onDetected(handleBarcodeDetected);
