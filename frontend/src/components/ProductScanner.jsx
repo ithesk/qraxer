@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library';
+import Quagga from '@ericblade/quagga2';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import haptics from '../services/haptics';
@@ -34,8 +34,7 @@ export default function ProductScanner() {
   const [error, setError] = useState('');
   const [lastCode, setLastCode] = useState('');
 
-  const videoRef = useRef(null);
-  const readerRef = useRef(null);
+  const scannerRef = useRef(null);
 
   useEffect(() => {
     // Auto-iniciar cámara si ya tiene permiso
@@ -56,70 +55,85 @@ export default function ProductScanner() {
     }
   };
 
-  const initScanner = async () => {
-    if (!videoRef.current) return;
+  const initScanner = () => {
+    if (!scannerRef.current) return;
 
-    try {
-      // Configure hints for barcode formats
-      const hints = new Map();
-      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-        BarcodeFormat.EAN_13,
-        BarcodeFormat.EAN_8,
-        BarcodeFormat.UPC_A,
-        BarcodeFormat.UPC_E,
-        BarcodeFormat.CODE_128,
-        BarcodeFormat.CODE_39,
-        BarcodeFormat.QR_CODE,
-      ]);
-
-      readerRef.current = new BrowserMultiFormatReader(hints);
-
-      const constraints = {
-        video: {
+    Quagga.init({
+      inputStream: {
+        name: 'Live',
+        type: 'LiveStream',
+        target: scannerRef.current,
+        constraints: {
           facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        }
-      };
+          width: { min: 640, ideal: 1280 },
+          height: { min: 480, ideal: 720 },
+        },
+      },
+      locator: {
+        patchSize: 'medium',
+        halfSample: true,
+      },
+      numOfWorkers: navigator.hardwareConcurrency || 4,
+      frequency: 10,
+      decoder: {
+        readers: [
+          'ean_reader',
+          'ean_8_reader',
+          'upc_reader',
+          'upc_e_reader',
+          'code_128_reader',
+          'code_39_reader',
+          'code_93_reader',
+          'codabar_reader',
+        ],
+      },
+      locate: true,
+    }, (err) => {
+      if (err) {
+        console.error('Quagga init error:', err);
+        setError('No se pudo acceder a la cámara. Verifica los permisos.');
+        setScanning(false);
+        return;
+      }
+      Quagga.start();
+    });
 
-      await readerRef.current.decodeFromConstraints(
-        constraints,
-        videoRef.current,
-        (result, err) => {
-          if (result) {
-            const code = result.getText();
-            handleBarcodeDetected(code);
-          }
-        }
-      );
-
-    } catch (err) {
-      console.error('Camera error:', err);
-      setError('No se pudo acceder a la cámara. Verifica los permisos.');
-      setScanning(false);
-    }
+    Quagga.onDetected(handleBarcodeDetected);
   };
 
   const startScanner = () => {
     setError('');
     setProduct(null);
     setScanning(true);
+    // Pequeño delay para que el DOM monte el contenedor
     setTimeout(() => initScanner(), 150);
   };
 
   const stopScanner = () => {
-    if (readerRef.current) {
-      try {
-        readerRef.current.reset();
-      } catch (e) {
-        // Ignore
-      }
-      readerRef.current = null;
+    try {
+      Quagga.offDetected(handleBarcodeDetected);
+      Quagga.stop();
+    } catch (e) {
+      // Ignore
     }
     setScanning(false);
   };
 
-  const handleBarcodeDetected = async (code) => {
+  const handleBarcodeDetected = async (result) => {
+    const code = result.codeResult.code;
+
+    // Validar que el código tenga confianza suficiente
+    // Quagga puede dar falsos positivos, verificamos que tenga buena decodificación
+    const errors = result.codeResult.decodedCodes
+      .filter(c => c.error !== undefined)
+      .map(c => c.error);
+    const avgError = errors.reduce((a, b) => a + b, 0) / errors.length;
+
+    // Si el error promedio es muy alto, ignorar
+    if (avgError > 0.25) {
+      return;
+    }
+
     // Avoid duplicate scans
     if (code === lastCode) return;
     setLastCode(code);
@@ -317,27 +331,18 @@ export default function ProductScanner() {
     return (
       <div className="fade-in">
         <div className="card" style={{ padding: '16px' }}>
-          {/* Camera view - wider for barcodes */}
-          <div style={{
-            width: '100%',
-            aspectRatio: '16/9',
-            borderRadius: 'var(--radius-sm)',
-            overflow: 'hidden',
-            background: '#000',
-            position: 'relative',
-          }}>
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              autoPlay
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                display: 'block',
-              }}
-            />
+          {/* Camera view - Quagga container */}
+          <div
+            ref={scannerRef}
+            style={{
+              width: '100%',
+              aspectRatio: '16/9',
+              borderRadius: 'var(--radius-sm)',
+              overflow: 'hidden',
+              background: '#000',
+              position: 'relative',
+            }}
+          >
             {/* Scan line overlay */}
             <div style={{
               position: 'absolute',
@@ -348,6 +353,8 @@ export default function ProductScanner() {
               background: 'rgba(34, 197, 94, 0.8)',
               boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)',
               animation: 'pulse 1.5s infinite',
+              zIndex: 10,
+              pointerEvents: 'none',
             }} />
           </div>
 
@@ -465,7 +472,7 @@ export default function ProductScanner() {
           color: 'var(--text-muted)',
           textAlign: 'center',
         }}>
-          Formatos soportados: EAN-13, EAN-8, UPC-A, Code 128, Code 39, QR
+          Formatos: EAN-13, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93
         </p>
       </div>
     </div>
