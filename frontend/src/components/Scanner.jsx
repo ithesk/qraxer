@@ -42,8 +42,8 @@ export default function Scanner({ onScan }) {
       const result = await navigator.permissions.query({ name: 'camera' });
       setHasPermission(result.state === 'granted');
 
-      // Auto-iniciar si ya tiene permiso y el usuario lo usó antes
-      if (result.state === 'granted' && localStorage.getItem('autoStartScanner') === 'true') {
+      // Auto-iniciar si ya tiene permiso (siempre abrir cámara automáticamente)
+      if (result.state === 'granted') {
         setScanning(true);
       }
 
@@ -52,7 +52,7 @@ export default function Scanner({ onScan }) {
         setHasPermission(result.state === 'granted');
       };
     } catch (e) {
-      // Permissions API no soportada
+      // Permissions API no soportada - intentar abrir igual
       setHasPermission(null);
     }
   };
@@ -268,7 +268,7 @@ export default function Scanner({ onScan }) {
                 fontWeight: '700',
                 marginBottom: '8px'
               }}>
-                Escanear QR
+                Reparaciones
               </h2>
 
               <p style={{
@@ -276,7 +276,7 @@ export default function Scanner({ onScan }) {
                 opacity: 0.8,
                 marginBottom: '24px'
               }}>
-                Escanea el codigo de la reparacion
+                Escanea el código QR de la orden
               </p>
 
               <button
@@ -296,7 +296,7 @@ export default function Scanner({ onScan }) {
                 }}
               >
                 <CameraIcon />
-                Abrir camara
+                Escanear
               </button>
             </div>
 

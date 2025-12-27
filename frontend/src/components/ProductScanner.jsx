@@ -38,10 +38,23 @@ export default function ProductScanner() {
   const readerRef = useRef(null);
 
   useEffect(() => {
+    // Auto-iniciar cámara si ya tiene permiso
+    checkCameraAndAutoStart();
     return () => {
       stopScanner();
     };
   }, []);
+
+  const checkCameraAndAutoStart = async () => {
+    try {
+      const result = await navigator.permissions.query({ name: 'camera' });
+      if (result.state === 'granted') {
+        startScanner();
+      }
+    } catch (e) {
+      // Permissions API no soportada
+    }
+  };
 
   const initScanner = async () => {
     if (!videoRef.current) return;
@@ -435,7 +448,7 @@ export default function ProductScanner() {
           }}
         >
           <CameraIcon />
-          Abrir cámara
+          Escanear
         </button>
       </div>
 
