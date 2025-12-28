@@ -233,8 +233,202 @@ router.get('/recent', async (req, res, next) => {
 });
 
 /**
+ * POST /api/repair/checkin
+ * Cliente llega a recoger - envía notificación al técnico
+ * NOTE: This route must be BEFORE /:code to avoid being matched as a code
+ */
+router.post('/checkin', async (req, res, next) => {
+  try {
+    const { qrContent } = req.body;
+    const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    if (!qrContent) {
+      throw new AppError('Contenido de QR requerido', 400);
+    }
+
+    // Validar QR
+    const qrResult = qrService.validateQRContent(qrContent);
+
+    if (!qrResult.valid) {
+      throw new AppError(qrResult.error, 400);
+    }
+
+    // Buscar reparación
+    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userId);
+
+    if (!repair) {
+      throw new AppError(`Reparacion ${qrResult.repairCode} no encontrada`, 404);
+    }
+
+    // Obtener técnico asignado
+    const technician = repair.user_id ? {
+      id: repair.user_id[0],
+      name: repair.user_id[1],
+    } : null;
+
+    // Registrar check-in en chatter de Odoo
+    const checkinMessage = `
+<p><strong>🔔 Check-in del cliente</strong></p>
+<ul>
+  <li><strong>Cliente:</strong> ${repair.partner_id ? repair.partner_id[1] : 'N/A'}</li>
+  <li><strong>Registrado por:</strong> ${userName}</li>
+  <li><strong>Fecha:</strong> ${new Date().toLocaleString('es-DO')}</li>
+  <li><strong>Estado actual:</strong> ${repair.state}</li>
+</ul>
+<p><em>El cliente ha llegado a recoger su equipo.</em></p>
+    `.trim();
+
+    try {
+      await odooClient.execute('repair.order', 'message_post', [repair.id], {
+        body: checkinMessage,
+        message_type: 'notification',
+      }, userId);
+    } catch (e) {
+      logger.warn('No se pudo registrar check-in en chatter:', e.message);
+    }
+
+    // Agregar el check-in al sistema de notificaciones en memoria
+    // (para que otros usuarios de la app lo vean)
+    const checkinNotification = {
+      id: `checkin-${repair.id}-${Date.now()}`,
+      type: 'checkin',
+      repairId: repair.id,
+      repairCode: repair.name,
+      clientName: repair.partner_id ? repair.partner_id[1] : 'Cliente',
+      technicianId: technician?.id || null,
+      technicianName: technician?.name || null,
+      registeredBy: userName,
+      registeredById: userId,
+      timestamp: new Date().toISOString(),
+      state: repair.state,
+    };
+
+    // Guardar en memoria para polling (temporal hasta implementar push)
+    if (!global.checkinNotifications) {
+      global.checkinNotifications = [];
+    }
+    global.checkinNotifications.unshift(checkinNotification);
+    // Mantener solo las últimas 50 notificaciones
+    if (global.checkinNotifications.length > 50) {
+      global.checkinNotifications = global.checkinNotifications.slice(0, 50);
+    }
+
+    res.json({
+      success: true,
+      message: 'Check-in registrado',
+      checkin: checkinNotification,
+      repair: {
+        id: repair.id,
+        name: repair.name,
+        state: repair.state,
+        partner: repair.partner_id ? repair.partner_id[1] : null,
+        technician: technician,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/repair/checkin/pending
+ * Obtener check-ins pendientes para el técnico actual
+ */
+router.get('/checkin/pending', async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+
+    const notifications = (global.checkinNotifications || [])
+      .filter(n => {
+        // Mostrar si es para este técnico o si no tiene técnico asignado
+        const isForMe = n.technicianId === userId || n.technicianId === null;
+        // Solo mostrar de los últimos 30 minutos
+        const isRecent = new Date() - new Date(n.timestamp) < 30 * 60 * 1000;
+        return isForMe && isRecent;
+      });
+
+    res.json({ notifications });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/repair/checkin/respond
+ * Técnico responde al check-in
+ */
+router.post('/checkin/respond', async (req, res, next) => {
+  try {
+    const { checkinId, response } = req.body;
+    const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    if (!checkinId || !response) {
+      throw new AppError('checkinId y response requeridos', 400);
+    }
+
+    const validResponses = ['coming', 'ready', 'need_time'];
+    if (!validResponses.includes(response)) {
+      throw new AppError('Respuesta inválida', 400);
+    }
+
+    // Buscar la notificación
+    const notification = (global.checkinNotifications || []).find(n => n.id === checkinId);
+
+    if (!notification) {
+      throw new AppError('Notificación no encontrada', 404);
+    }
+
+    // Mapear respuestas a mensajes
+    const responseMessages = {
+      coming: '🚶 Voy de camino',
+      ready: '✅ Listo para entregar',
+      need_time: '⏰ Necesito 10 minutos',
+    };
+
+    // Registrar respuesta en chatter de Odoo
+    const responseMessage = `
+<p><strong>📱 Respuesta del técnico al check-in</strong></p>
+<ul>
+  <li><strong>Técnico:</strong> ${userName}</li>
+  <li><strong>Respuesta:</strong> ${responseMessages[response]}</li>
+  <li><strong>Fecha:</strong> ${new Date().toLocaleString('es-DO')}</li>
+</ul>
+    `.trim();
+
+    try {
+      await odooClient.execute('repair.order', 'message_post', [notification.repairId], {
+        body: responseMessage,
+        message_type: 'notification',
+      }, userId);
+    } catch (e) {
+      logger.warn('No se pudo registrar respuesta en chatter:', e.message);
+    }
+
+    // Actualizar la notificación con la respuesta
+    notification.response = {
+      type: response,
+      message: responseMessages[response],
+      respondedBy: userName,
+      respondedById: userId,
+      respondedAt: new Date().toISOString(),
+    };
+
+    res.json({
+      success: true,
+      message: 'Respuesta enviada',
+      notification,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/repair/:code
  * Obtener información de una reparación por código
+ * NOTE: This route MUST be LAST because :code matches any string
  */
 router.get('/:code', async (req, res, next) => {
   try {
