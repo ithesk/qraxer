@@ -1036,3 +1036,20 @@ select {
     background: rgba(255, 255, 255, 0.9);
   }
 }
+
+/* ==========================================
+   CAPACITOR BARCODE SCANNER - Native iOS
+   ========================================== */
+body.barcode-scanner-active {
+  background: transparent !important;
+}
+
+body.barcode-scanner-active #root {
+  background: transparent !important;
+}
+
+body.barcode-scanner-active .header,
+body.barcode-scanner-active .bottom-nav,
+body.barcode-scanner-active .main-content {
+  display: none !important;
+}

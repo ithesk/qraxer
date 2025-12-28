@@ -2,3 +2,10 @@ node_modules/
 dist/
 .env
 *.log
+
+# iOS / Capacitor
+ios/App/Pods/
+ios/App/App/public/
+ios/App/App/capacitor.config.json
+*.xcuserdatad
+DerivedData/

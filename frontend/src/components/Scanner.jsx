@@ -5,6 +5,7 @@ import { toast } from './Toast';
 import RecentScans from './RecentScans';
 import { scanHistory } from '../services/scanHistory';
 import audio from '../services/audio';
+import { isNativePlatform, scanOnce, stopNativeScan } from '../services/nativeScanner';
 
 const CameraIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -27,8 +28,15 @@ export default function Scanner({ onScan }) {
   const [loading, setLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [showFlash, setShowFlash] = useState(false);
+  const [useNative, setUseNative] = useState(false);
   const videoRef = useRef(null);
   const scannerRef = useRef(null);
+  const nativeScannerRef = useRef(null);
+
+  // Detectar si estamos en plataforma nativa
+  useEffect(() => {
+    setUseNative(isNativePlatform());
+  }, []);
 
   // Verificar permisos de cámara al montar
   useEffect(() => {
@@ -130,15 +138,52 @@ export default function Scanner({ onScan }) {
     }
   };
 
-  const startScanner = () => {
+  const startScanner = async () => {
     // Inicializar audio en interacción del usuario (requerido para iOS)
     audio.init();
 
     setError('');
+
+    // Si estamos en plataforma nativa (iOS), usar el scanner nativo con Vision
+    if (useNative) {
+      setLoading(true);
+      try {
+        const result = await scanOnce();
+        if (result) {
+          handleQrSuccess(result);
+        } else {
+          setLoading(false);
+          setError('No se detectó ningún código');
+        }
+      } catch (err) {
+        setLoading(false);
+        if (err.message.includes('permission')) {
+          setError('Se requiere permiso de cámara. Actívalo en Configuración.');
+        } else if (err.message.includes('canceled') || err.message.includes('cancelled')) {
+          // Usuario canceló, no mostrar error
+        } else {
+          setError(err.message || 'Error al escanear');
+        }
+      }
+      return;
+    }
+
+    // Fallback: usar scanner web
     setScanning(true);
   };
 
-  const stopScanner = () => {
+  const stopScanner = async () => {
+    // Detener scanner nativo si está activo
+    if (useNative && nativeScannerRef.current) {
+      try {
+        await nativeScannerRef.current.stop();
+      } catch (e) {
+        // Ignore stop errors
+      }
+      nativeScannerRef.current = null;
+    }
+
+    // Detener scanner web si está activo
     if (scannerRef.current) {
       try {
         scannerRef.current.stop();
@@ -148,6 +193,12 @@ export default function Scanner({ onScan }) {
       }
       scannerRef.current = null;
     }
+
+    // También llamar stopNativeScan como respaldo
+    if (useNative) {
+      await stopNativeScan();
+    }
+
     setScanning(false);
   };
 

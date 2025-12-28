@@ -2,6 +2,13 @@
 // En desarrollo, usa el backend local en puerto 3001
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
+// DEBUG: Log API configuration
+console.log('[API] ========== CONFIG ==========');
+console.log('[API] VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('[API] PROD mode:', import.meta.env.PROD);
+console.log('[API] Final API_URL:', API_URL);
+console.log('[API] ==============================');
+
 class ApiService {
   constructor() {
     this.accessToken = null;
@@ -273,16 +280,20 @@ class ApiService {
         healthUrl = API_URL.replace('/api', '/health');
       }
 
+      console.log('[API] checkConnection - healthUrl:', healthUrl);
+
       const response = await fetch(healthUrl, {
         method: 'GET',
         cache: 'no-store',
       });
       const latency = Date.now() - start;
+      console.log('[API] checkConnection - response:', response.status, response.ok, 'latency:', latency);
       return {
         online: response.ok,
         latency,
       };
     } catch (e) {
+      console.error('[API] checkConnection - ERROR:', e.message, e);
       return {
         online: false,
         latency: 0,

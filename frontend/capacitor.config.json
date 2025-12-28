@@ -1,0 +1,13 @@
+{
+  "appId": "com.qraxer.app",
+  "appName": "QRAxer",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "automatic"
+  },
+  "plugins": {
+    "BarcodeScanner": {
+      "enableGoogleMLKitBarcodeScan": false
+    }
+  }
+}
