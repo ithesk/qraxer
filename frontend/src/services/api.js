@@ -263,6 +263,63 @@ class ApiService {
     return data;
   }
 
+  // === Check-in Methods ===
+
+  /**
+   * Register customer check-in (customer arrived to pick up)
+   */
+  async checkin(qrContent) {
+    const response = await this.request('/repair/checkin', {
+      method: 'POST',
+      body: JSON.stringify({ qrContent }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al registrar check-in');
+    }
+
+    return data;
+  }
+
+  /**
+   * Get pending check-in notifications for current technician
+   */
+  async getPendingCheckins() {
+    const response = await this.request('/repair/checkin/pending', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener notificaciones');
+    }
+
+    return data;
+  }
+
+  /**
+   * Respond to a check-in notification
+   * @param {string} checkinId - ID of the check-in notification
+   * @param {string} response - 'coming' | 'ready' | 'need_time'
+   */
+  async respondToCheckin(checkinId, responseType) {
+    const response = await this.request('/repair/checkin/respond', {
+      method: 'POST',
+      body: JSON.stringify({ checkinId, response: responseType }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al responder');
+    }
+
+    return data;
+  }
+
   /**
    * Check API connection status
    * @returns {Promise<{online: boolean, latency: number}>}

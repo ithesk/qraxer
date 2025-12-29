@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } from '@zxing/library';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import haptics from '../services/haptics';
-import audio from '../services/audio';
+import { isNativePlatform, scanOnce, stopNativeScan } from '../services/nativeScanner';
 
 // Barcode icon
 const BarcodeIcon = ({ size = 40 }) => (
@@ -28,27 +27,75 @@ const CameraIcon = ({ size = 20 }) => (
   </svg>
 );
 
+// Clock icon for history
+const ClockIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12,6 12,12 16,14" />
+  </svg>
+);
+
 export default function ProductScanner() {
   const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState(null);
   const [error, setError] = useState('');
-  const [lastCode, setLastCode] = useState('');
+  const [history, setHistory] = useState([]); // Últimos 3 scans
+
+  const isNative = isNativePlatform();
+
+  useEffect(() => {
+    return () => {
+      if (isNative) {
+        stopNativeScan();
+      }
+    };
+  }, []);
+
+  const addToHistory = (prod) => {
+    setHistory(prev => {
+      // Evitar duplicados consecutivos
+      if (prev.length > 0 && prev[0].barcode === prod.barcode) {
+        return prev;
+      }
+      // Mantener solo los últimos 3
+      const newHistory = [{ ...prod, _scannedAt: Date.now() }, ...prev].slice(0, 3);
+      return newHistory;
+    });
+  };
+
+  const startScanner = async () => {
+    setError('');
+    setProduct(null);
+    setScanning(true);
+
+    if (isNative) {
+      try {
+        const code = await scanOnce();
+        if (code) {
+          await handleBarcodeDetected(code);
+        } else {
+          setScanning(false);
+        }
+      } catch (err) {
+        console.error('Native scan error:', err);
+        setError(err.message || 'Error al escanear');
+        setScanning(false);
+      }
+    } else {
+      initWebScanner();
+    }
+  };
 
   const videoRef = useRef(null);
   const readerRef = useRef(null);
 
-  useEffect(() => {
-    return () => {
-      stopScanner();
-    };
-  }, []);
+  const initWebScanner = async () => {
+    const { BrowserMultiFormatReader, BarcodeFormat, DecodeHintType } = await import('@zxing/library');
 
-  const initScanner = async () => {
     if (!videoRef.current) return;
 
     try {
-      // Configurar hints para formatos de código de barras
       const hints = new Map();
       hints.set(DecodeHintType.POSSIBLE_FORMATS, [
         BarcodeFormat.EAN_13,
@@ -62,65 +109,42 @@ export default function ProductScanner() {
 
       readerRef.current = new BrowserMultiFormatReader(hints);
 
-      // Constraints optimizados para escaneo de códigos de barras
-      const constraints = {
-        video: {
-          facingMode: 'environment',
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        }
-      };
-
-      // Usar decodeFromConstraints (más confiable que decodeFromVideoDevice)
       await readerRef.current.decodeFromConstraints(
-        constraints,
+        {
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          }
+        },
         videoRef.current,
-        (result, err) => {
+        (result) => {
           if (result) {
             handleBarcodeDetected(result.getText());
           }
-          // Ignorar errores de "no barcode found" - son normales
         }
       );
     } catch (err) {
       console.error('Camera error:', err);
-      setError('No se pudo acceder a la cámara. Verifica los permisos.');
+      setError('No se pudo acceder a la cámara.');
       setScanning(false);
     }
   };
 
-  const startScanner = () => {
-    // Inicializar audio en interacción del usuario (requerido para iOS)
-    audio.init();
-
-    setError('');
-    setProduct(null);
-    setScanning(true);
-    // Pequeño delay para que el DOM monte el video
-    setTimeout(() => initScanner(), 150);
-  };
-
   const stopScanner = () => {
-    if (readerRef.current) {
+    if (isNative) {
+      stopNativeScan();
+    } else if (readerRef.current) {
       try {
         readerRef.current.reset();
-      } catch (e) {
-        // Ignore
-      }
+      } catch (e) {}
       readerRef.current = null;
     }
     setScanning(false);
   };
 
   const handleBarcodeDetected = async (code) => {
-    // Avoid duplicate scans
-    if (code === lastCode) return;
-    setLastCode(code);
-
-    // Feedback inmediato: haptic + audio
     haptics.impact();
-    audio.scan();
-
     stopScanner();
     setLoading(true);
     setError('');
@@ -130,17 +154,15 @@ export default function ProductScanner() {
 
       if (data.found) {
         haptics.success();
-        audio.success();
         setProduct(data.product);
+        addToHistory(data.product);
       } else {
         haptics.error();
-        audio.error();
         setError(`Producto no encontrado: ${code}`);
         toast.error('Producto no encontrado');
       }
     } catch (err) {
       haptics.error();
-      audio.error();
       setError(err.message);
       toast.error(err.message);
     } finally {
@@ -151,129 +173,189 @@ export default function ProductScanner() {
   const handleNewScan = () => {
     setProduct(null);
     setError('');
-    setLastCode('');
     startScanner();
+  };
+
+  const selectFromHistory = (prod) => {
+    setProduct(prod);
+    setError('');
   };
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('es-DO', {
       style: 'currency',
       currency: 'DOP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(price);
   };
 
-  // Show product result
+  // Show product result - diseño minimalista
   if (product) {
     return (
       <div className="fade-in">
-        <h2 style={{
-          fontSize: '22px',
-          fontWeight: '700',
-          marginBottom: '20px',
-          color: 'var(--text)',
+        {/* Product Card - Minimalista */}
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '24px',
+          border: '1px solid var(--border-light)',
         }}>
-          Producto Encontrado
-        </h2>
-
-        <div className="card" style={{ padding: '24px' }}>
-          {/* Product name */}
-          <h3 style={{
-            fontSize: '20px',
-            fontWeight: '600',
+          {/* Precio destacado */}
+          <div style={{
+            fontSize: '36px',
+            fontWeight: '700',
             color: 'var(--text)',
-            marginBottom: '16px',
-            lineHeight: '1.3',
+            marginBottom: '8px',
+          }}>
+            {formatPrice(product.list_price)}
+          </div>
+
+          {/* Nombre del producto */}
+          <h3 style={{
+            fontSize: '17px',
+            fontWeight: '500',
+            color: 'var(--text)',
+            marginBottom: '20px',
+            lineHeight: '1.4',
           }}>
             {product.name}
           </h3>
 
-          {/* Price - prominent */}
+          {/* Detalles en grid */}
           <div style={{
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            borderRadius: '16px',
-            padding: '20px',
-            marginBottom: '20px',
-            textAlign: 'center',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '16px',
+            paddingTop: '16px',
+            borderTop: '1px solid var(--border-light)',
           }}>
-            <div style={{
-              fontSize: '14px',
-              color: 'rgba(255,255,255,0.8)',
-              marginBottom: '4px',
-            }}>
-              Precio de Venta
-            </div>
-            <div style={{
-              fontSize: '32px',
-              fontWeight: '700',
-              color: 'white',
-            }}>
-              {formatPrice(product.list_price)}
-            </div>
-          </div>
-
-          {/* Details */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {product.default_code && (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '12px 0',
-                borderBottom: '1px solid var(--border-light)',
-              }}>
-                <span style={{ color: 'var(--text-muted)' }}>Referencia</span>
-                <span style={{ fontWeight: '600' }}>{product.default_code}</span>
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Código
               </div>
-            )}
-
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '12px 0',
-              borderBottom: '1px solid var(--border-light)',
-            }}>
-              <span style={{ color: 'var(--text-muted)' }}>Código de Barras</span>
-              <span style={{ fontWeight: '600', fontFamily: 'monospace' }}>{product.barcode}</span>
+              <div style={{ fontSize: '14px', fontFamily: 'monospace', color: 'var(--text)' }}>
+                {product.barcode}
+              </div>
             </div>
 
             {product.qty_available !== undefined && (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '12px 0',
-                borderBottom: '1px solid var(--border-light)',
-              }}>
-                <span style={{ color: 'var(--text-muted)' }}>Stock Disponible</span>
-                <span style={{
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Stock
+                </div>
+                <div style={{
+                  fontSize: '14px',
                   fontWeight: '600',
-                  color: product.qty_available > 0 ? 'var(--success)' : 'var(--error)',
+                  color: product.qty_available > 0 ? 'var(--text)' : 'var(--error)',
                 }}>
-                  {product.qty_available} unidades
-                </span>
+                  {product.qty_available} uds
+                </div>
+              </div>
+            )}
+
+            {product.default_code && (
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Referencia
+                </div>
+                <div style={{ fontSize: '14px', color: 'var(--text)' }}>
+                  {product.default_code}
+                </div>
               </div>
             )}
 
             {product.categ_name && (
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                padding: '12px 0',
-              }}>
-                <span style={{ color: 'var(--text-muted)' }}>Categoría</span>
-                <span style={{ fontWeight: '500' }}>{product.categ_name}</span>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Categoría
+                </div>
+                <div style={{ fontSize: '14px', color: 'var(--text)' }}>
+                  {product.categ_name}
+                </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* New scan button */}
+        {/* Botón escanear */}
         <button
           onClick={handleNewScan}
-          className="btn-primary btn-large"
-          style={{ width: '100%', marginTop: '20px' }}
+          style={{
+            width: '100%',
+            marginTop: '16px',
+            padding: '16px',
+            background: 'var(--text)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '12px',
+            fontSize: '15px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
         >
-          <BarcodeIcon size={20} />
-          Escanear otro producto
+          <CameraIcon size={18} />
+          Escanear otro
         </button>
+
+        {/* Historial */}
+        {history.length > 1 && (
+          <div style={{ marginTop: '24px' }}>
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--text-muted)',
+              textTransform: 'uppercase',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}>
+              <ClockIcon size={14} />
+              Anteriores
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {history.slice(1).map((item, idx) => (
+                <button
+                  key={`${item.barcode}-${idx}`}
+                  onClick={() => selectFromHistory(item)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px 14px',
+                    background: 'white',
+                    border: '1px solid var(--border-light)',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '14px',
+                      color: 'var(--text)',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                      {item.barcode}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text)', marginLeft: '12px' }}>
+                    {formatPrice(item.list_price)}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -288,39 +370,32 @@ export default function ProductScanner() {
         justifyContent: 'center',
         padding: '60px 20px',
       }}>
-        <div style={{
-          width: '80px',
-          height: '80px',
-          borderRadius: '50%',
-          background: 'var(--border-light)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <div className="spinner spinner-dark" style={{ width: '32px', height: '32px' }} />
-        </div>
+        <div className="spinner spinner-dark" style={{ width: '32px', height: '32px' }} />
         <p style={{
-          marginTop: '20px',
-          fontSize: '17px',
-          fontWeight: '500',
-          color: 'var(--text)',
+          marginTop: '16px',
+          fontSize: '15px',
+          color: 'var(--text-muted)',
         }}>
-          Buscando producto...
+          Buscando...
         </p>
       </div>
     );
   }
 
-  // Scanning state
-  if (scanning) {
+  // Scanning state - solo para web
+  if (scanning && !isNative) {
     return (
       <div className="fade-in">
-        <div className="card" style={{ padding: '16px' }}>
-          {/* Camera view */}
+        <div style={{
+          background: 'white',
+          borderRadius: '16px',
+          padding: '16px',
+          border: '1px solid var(--border-light)',
+        }}>
           <div style={{
             width: '100%',
             aspectRatio: '4/3',
-            borderRadius: 'var(--radius-sm)',
+            borderRadius: '12px',
             overflow: 'hidden',
             background: '#000',
             position: 'relative',
@@ -337,34 +412,31 @@ export default function ProductScanner() {
                 display: 'block',
               }}
             />
-            {/* Scan line overlay */}
             <div style={{
               position: 'absolute',
               top: '50%',
               left: '10%',
               right: '10%',
               height: '2px',
-              background: 'rgba(34, 197, 94, 0.8)',
-              boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)',
-              animation: 'pulse 1.5s infinite',
+              background: 'rgba(255, 255, 255, 0.6)',
               zIndex: 10,
-              pointerEvents: 'none',
             }} />
           </div>
 
-          <p style={{
-            textAlign: 'center',
-            marginTop: '16px',
-            color: 'var(--text-secondary)',
-            fontSize: '14px',
-          }}>
-            Apunta la cámara al código de barras
-          </p>
-
           <button
             onClick={stopScanner}
-            className="btn-secondary btn-large"
-            style={{ marginTop: '16px', width: '100%' }}
+            style={{
+              width: '100%',
+              marginTop: '16px',
+              padding: '14px',
+              background: 'var(--bg)',
+              color: 'var(--text)',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '15px',
+              fontWeight: '500',
+              cursor: 'pointer',
+            }}
           >
             Cancelar
           </button>
@@ -373,102 +445,159 @@ export default function ProductScanner() {
     );
   }
 
-  // Idle state
+  // Scanning state nativo
+  if (scanning && isNative) {
+    return (
+      <div className="fade-in" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '60px 20px',
+      }}>
+        <div className="spinner spinner-dark" style={{ width: '32px', height: '32px' }} />
+        <p style={{
+          marginTop: '16px',
+          fontSize: '15px',
+          color: 'var(--text-muted)',
+        }}>
+          Escaneando...
+        </p>
+      </div>
+    );
+  }
+
+  // Idle state - diseño minimalista
   return (
     <div className="fade-in">
-      <h2 style={{
-        fontSize: '22px',
-        fontWeight: '700',
-        marginBottom: '20px',
-        color: 'var(--text)',
-      }}>
-        Consultar Producto
-      </h2>
-
       {/* Error alert */}
       {error && (
-        <div className="alert alert-error" style={{ marginBottom: '16px' }}>
-          <span>{error}</span>
+        <div style={{
+          padding: '12px 16px',
+          background: '#fef2f2',
+          border: '1px solid #fecaca',
+          borderRadius: '10px',
+          marginBottom: '16px',
+          fontSize: '14px',
+          color: '#dc2626',
+        }}>
+          {error}
         </div>
       )}
 
-      {/* Main card */}
+      {/* Main scan card - minimalista */}
       <div style={{
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-        borderRadius: 'var(--radius)',
+        background: 'white',
+        borderRadius: '16px',
         padding: '40px 24px',
+        border: '1px solid var(--border-light)',
         textAlign: 'center',
-        color: 'white',
       }}>
-        {/* Icon */}
         <div style={{
-          width: '80px',
-          height: '80px',
+          width: '64px',
+          height: '64px',
           margin: '0 auto 20px',
-          background: 'rgba(255, 255, 255, 0.15)',
-          borderRadius: '20px',
+          background: 'var(--bg)',
+          borderRadius: '16px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}>
-          <BarcodeIcon size={40} />
+          <BarcodeIcon size={32} />
         </div>
 
         <h3 style={{
-          fontSize: '24px',
-          fontWeight: '700',
+          fontSize: '20px',
+          fontWeight: '600',
+          color: 'var(--text)',
           marginBottom: '8px',
         }}>
-          Escanear Código
+          Consultar Producto
         </h3>
 
         <p style={{
           fontSize: '14px',
-          opacity: 0.8,
+          color: 'var(--text-muted)',
           marginBottom: '24px',
         }}>
-          Escanea el código de barras para ver precio y stock
+          Escanea el código de barras
         </p>
 
         <button
           onClick={startScanner}
           style={{
-            background: 'white',
-            color: '#059669',
+            background: 'var(--text)',
+            color: 'white',
             padding: '14px 32px',
-            borderRadius: 'var(--radius-sm)',
-            fontSize: '16px',
+            borderRadius: '12px',
+            fontSize: '15px',
             fontWeight: '600',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '10px',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-            minHeight: '52px',
+            gap: '8px',
             border: 'none',
             cursor: 'pointer',
           }}
         >
-          <CameraIcon />
+          <CameraIcon size={18} />
           Escanear
         </button>
       </div>
 
-      {/* Supported formats info */}
-      <div style={{
-        marginTop: '24px',
-        padding: '16px',
-        background: 'var(--card-bg)',
-        borderRadius: 'var(--radius-sm)',
-        border: '1px solid var(--border-light)',
-      }}>
-        <p style={{
-          fontSize: '13px',
-          color: 'var(--text-muted)',
-          textAlign: 'center',
-        }}>
-          Formatos: EAN-13, EAN-8, UPC-A, UPC-E, Code 128, Code 39, Code 93
-        </p>
-      </div>
+      {/* Historial si existe */}
+      {history.length > 0 && (
+        <div style={{ marginTop: '24px' }}>
+          <div style={{
+            fontSize: '12px',
+            color: 'var(--text-muted)',
+            textTransform: 'uppercase',
+            marginBottom: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}>
+            <ClockIcon size={14} />
+            Recientes
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {history.map((item, idx) => (
+              <button
+                key={`${item.barcode}-${idx}`}
+                onClick={() => selectFromHistory(item)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 14px',
+                  background: 'white',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{
+                    fontSize: '14px',
+                    color: 'var(--text)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    {item.name}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                    {item.barcode}
+                  </div>
+                </div>
+                <div style={{ fontSize: '15px', fontWeight: '600', color: 'var(--text)', marginLeft: '12px' }}>
+                  {formatPrice(item.list_price)}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

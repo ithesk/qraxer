@@ -51,7 +51,16 @@ function beep(frequency = 1000, duration = 150, volume = 0.3, type = 'sine') {
 }
 
 /**
+ * Play scan detected sound (quick confirmation beep)
+ * Used when QR is first detected by camera
+ */
+function scan() {
+  beep(1200, 80, 0.25, 'sine');
+}
+
+/**
  * Play success sound (two ascending tones)
+ * Used when operation completes successfully
  */
 function success() {
   beep(880, 100, 0.2, 'sine');  // A5
@@ -59,7 +68,17 @@ function success() {
 }
 
 /**
- * Play error sound (descending tone)
+ * Play not found sound (single low tone)
+ * Used when QR is valid but item not found in system
+ */
+function notFound() {
+  beep(350, 300, 0.2, 'triangle');
+  setTimeout(() => beep(280, 200, 0.15, 'triangle'), 250);
+}
+
+/**
+ * Play error sound (descending harsh tones)
+ * Used when operation fails
  */
 function error() {
   beep(400, 200, 0.25, 'square');
@@ -67,10 +86,12 @@ function error() {
 }
 
 /**
- * Play scan beep (short confirmation sound)
+ * Play warning sound (attention-grabbing)
+ * Used for important alerts
  */
-function scan() {
-  beep(1200, 80, 0.25, 'sine');
+function warning() {
+  beep(600, 150, 0.2, 'triangle');
+  setTimeout(() => beep(600, 150, 0.2, 'triangle'), 200);
 }
 
 /**
@@ -92,9 +113,11 @@ function init() {
 
 export const audio = {
   beep,
-  success,
-  error,
   scan,
+  success,
+  notFound,
+  error,
+  warning,
   init,
 };
 

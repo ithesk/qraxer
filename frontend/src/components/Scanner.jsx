@@ -3,9 +3,12 @@ import QrScanner from 'qr-scanner';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import RecentScans from './RecentScans';
+import History from './History';
+import CheckInBar from './CheckInBar';
 import { scanHistory } from '../services/scanHistory';
 import audio from '../services/audio';
 import { isNativePlatform, scanOnce, stopNativeScan } from '../services/nativeScanner';
+import haptics from '../services/haptics';
 
 const CameraIcon = ({ size = 20 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -22,6 +25,29 @@ const AlertIcon = () => (
   </svg>
 );
 
+const HistoryIcon = ({ size = 16 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+const BackIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+const QRIcon = () => (
+  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="3" height="3" />
+    <rect x="18" y="18" width="3" height="3" />
+  </svg>
+);
+
 export default function Scanner({ onScan }) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
@@ -29,16 +55,15 @@ export default function Scanner({ onScan }) {
   const [hasPermission, setHasPermission] = useState(null);
   const [showFlash, setShowFlash] = useState(false);
   const [useNative, setUseNative] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const videoRef = useRef(null);
   const scannerRef = useRef(null);
   const nativeScannerRef = useRef(null);
 
-  // Detectar si estamos en plataforma nativa
   useEffect(() => {
     setUseNative(isNativePlatform());
   }, []);
 
-  // Verificar permisos de cámara al montar
   useEffect(() => {
     checkCameraPermission();
     return () => {
@@ -50,21 +75,16 @@ export default function Scanner({ onScan }) {
     try {
       const result = await navigator.permissions.query({ name: 'camera' });
       setHasPermission(result.state === 'granted');
-
-      // Escuchar cambios en el permiso
       result.onchange = () => {
         setHasPermission(result.state === 'granted');
       };
     } catch (e) {
-      // Permissions API no soportada
       setHasPermission(null);
     }
   };
 
-  // Iniciar scanner después de que el elemento esté en el DOM
   useEffect(() => {
     if (scanning && videoRef.current && !scannerRef.current) {
-      // Pequeño delay para asegurar que el video esté montado
       const timer = setTimeout(() => {
         initScanner();
       }, 150);
@@ -83,7 +103,6 @@ export default function Scanner({ onScan }) {
         return;
       }
 
-      // Configurar atributos del video para iOS
       videoRef.current.setAttribute('playsinline', 'true');
       videoRef.current.muted = true;
       videoRef.current.autoplay = true;
@@ -103,31 +122,17 @@ export default function Scanner({ onScan }) {
           calculateScanRegion: (video) => {
             const vw = video.videoWidth;
             const vh = video.videoHeight;
-
-            // Área de escaneo más grande para mejor detección
             const width = Math.round(vw * 0.70);
             const height = Math.round(vh * 0.50);
-
             const x = Math.round((vw - width) / 2);
             const y = Math.round((vh - height) / 2);
-
-            return {
-              x,
-              y,
-              width,
-              height,
-              downScaledWidth: 640,
-              downScaledHeight: 480
-            };
+            return { x, y, width, height, downScaledWidth: 640, downScaledHeight: 480 };
           }
         }
       );
 
-      // Establecer cámara trasera
       await scannerRef.current.setCamera('environment');
       await scannerRef.current.start();
-
-      // Guardar que el scanner se inició exitosamente
       localStorage.setItem('autoStartScanner', 'true');
       setHasPermission(true);
     } catch (err) {
@@ -139,12 +144,9 @@ export default function Scanner({ onScan }) {
   };
 
   const startScanner = async () => {
-    // Inicializar audio en interacción del usuario (requerido para iOS)
     audio.init();
-
     setError('');
 
-    // Si estamos en plataforma nativa (iOS), usar el scanner nativo con Vision
     if (useNative) {
       setLoading(true);
       try {
@@ -160,7 +162,7 @@ export default function Scanner({ onScan }) {
         if (err.message.includes('permission')) {
           setError('Se requiere permiso de cámara. Actívalo en Configuración.');
         } else if (err.message.includes('canceled') || err.message.includes('cancelled')) {
-          // Usuario canceló, no mostrar error
+          // Usuario canceló
         } else {
           setError(err.message || 'Error al escanear');
         }
@@ -168,33 +170,25 @@ export default function Scanner({ onScan }) {
       return;
     }
 
-    // Fallback: usar scanner web
     setScanning(true);
   };
 
   const stopScanner = async () => {
-    // Detener scanner nativo si está activo
     if (useNative && nativeScannerRef.current) {
       try {
         await nativeScannerRef.current.stop();
-      } catch (e) {
-        // Ignore stop errors
-      }
+      } catch (e) {}
       nativeScannerRef.current = null;
     }
 
-    // Detener scanner web si está activo
     if (scannerRef.current) {
       try {
         scannerRef.current.stop();
         scannerRef.current.destroy();
-      } catch (e) {
-        // Ignore stop errors
-      }
+      } catch (e) {}
       scannerRef.current = null;
     }
 
-    // También llamar stopNativeScan como respaldo
     if (useNative) {
       await stopNativeScan();
     }
@@ -202,19 +196,10 @@ export default function Scanner({ onScan }) {
     setScanning(false);
   };
 
-  // Vibración para feedback táctil
-  const vibrate = (pattern) => {
-    if (navigator.vibrate) {
-      navigator.vibrate(pattern);
-    }
-  };
-
   const handleQrSuccess = async (decodedText) => {
-    console.log('[Scanner] QR detectado:', decodedText);
-
-    // Flash verde visual + vibración + audio (feedback inmediato < 300ms)
+    // QR detected - immediate feedback
     setShowFlash(true);
-    vibrate(30);
+    haptics.scanDetected();
     audio.scan();
     setTimeout(() => setShowFlash(false), 150);
 
@@ -223,28 +208,30 @@ export default function Scanner({ onScan }) {
     setError('');
 
     try {
-      console.log('[Scanner] Llamando API scanQR...');
       const data = await api.scanQR(decodedText);
-      console.log('[Scanner] API respondió:', data);
-
-      // Guardar en historial de escaneos
-      console.log('[Scanner] Guardando en historial:', data.repair);
       scanHistory.addScan({
         repairId: data.repair.id,
         repairName: data.repair.name,
         currentState: data.repair.currentState,
       });
-      console.log('[Scanner] Historial guardado');
-
-      // Feedback de éxito
-      vibrate(100);
+      // Success - found in system
+      haptics.success();
       audio.success();
       onScan(data, decodedText);
     } catch (err) {
-      console.error('[Scanner] Error:', err.message);
-      // Feedback de error
-      vibrate([200, 100, 200]);
-      audio.error();
+      // Check if it's a "not found" error vs other errors
+      const isNotFound = err.message?.toLowerCase().includes('no encontrad') ||
+                         err.message?.toLowerCase().includes('not found');
+
+      if (isNotFound) {
+        // Not found - distinctive feedback
+        haptics.notFound();
+        audio.notFound();
+      } else {
+        // Error - operation failed
+        haptics.error();
+        audio.error();
+      }
       setError(err.message);
       toast.error(err.message);
       setLoading(false);
@@ -273,91 +260,104 @@ export default function Scanner({ onScan }) {
 
       {/* Error Alert */}
       {error && (
-        <div className="alert alert-error">
+        <div className="alert alert-error" style={{ marginBottom: '12px' }}>
           <AlertIcon />
           <span>{error}</span>
         </div>
       )}
 
-      {/* Main Scanner Area */}
+      {/* Main Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         {!scanning && !loading ? (
-          /* Idle State - Blue Area like mockup */
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px'
-          }}>
-            {/* Blue Scanner Card */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+
+            {/* Check-in bar at top */}
+            <CheckInBar />
+
+            {/* Compact Scan Card */}
             <div style={{
               background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
-              borderRadius: 'var(--radius)',
-              padding: '40px 24px',
-              textAlign: 'center',
-              color: 'white'
+              borderRadius: '16px',
+              padding: '24px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
             }}>
-              {/* QR Icon */}
+              {/* Icon */}
               <div style={{
-                width: '80px',
-                height: '80px',
-                margin: '0 auto 20px',
+                width: '56px',
+                height: '56px',
                 background: 'rgba(255, 255, 255, 0.15)',
-                borderRadius: '20px',
+                borderRadius: '14px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexShrink: 0,
               }}>
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="3" height="3" />
-                  <rect x="18" y="18" width="3" height="3" />
-                </svg>
+                <QRIcon />
               </div>
 
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '700',
-                marginBottom: '8px'
-              }}>
-                Reparaciones
-              </h2>
+              {/* Text */}
+              <div style={{ flex: 1, color: 'white' }}>
+                <h3 style={{ fontSize: '17px', fontWeight: '600', marginBottom: '4px' }}>
+                  Escanear Reparacion
+                </h3>
+                <p style={{ fontSize: '13px', opacity: 0.8 }}>
+                  Actualizar estado de orden
+                </p>
+              </div>
 
-              <p style={{
-                fontSize: '14px',
-                opacity: 0.8,
-                marginBottom: '24px'
-              }}>
-                Escanea el código QR de la orden
-              </p>
-
+              {/* Scan button */}
               <button
                 onClick={startScanner}
                 style={{
+                  width: '52px',
+                  height: '52px',
                   background: 'white',
-                  color: 'var(--primary)',
-                  padding: '14px 32px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  display: 'inline-flex',
+                  border: 'none',
+                  borderRadius: '14px',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '10px',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: 'var(--primary)',
                   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                  minHeight: '52px'
+                  flexShrink: 0,
                 }}
               >
-                <CameraIcon />
-                Escanear
+                <CameraIcon size={24} />
               </button>
             </div>
 
-            {/* Recent Scans below */}
+            {/* Recent Scans */}
             <RecentScans />
+
+            {/* History button */}
+            <button
+              onClick={() => {
+                haptics.selection();
+                setShowHistory(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '12px 16px',
+                background: 'white',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border-light)',
+                borderRadius: '12px',
+                fontSize: '13px',
+                fontWeight: '500',
+                cursor: 'pointer',
+              }}
+            >
+              <HistoryIcon />
+              Ver historial completo
+            </button>
           </div>
         ) : loading ? (
-          /* Loading State */
           <div style={{
             flex: 1,
             display: 'flex',
@@ -367,79 +367,67 @@ export default function Scanner({ onScan }) {
             padding: '40px 20px'
           }}>
             <div style={{
-              width: '80px',
-              height: '80px',
+              width: '64px',
+              height: '64px',
               borderRadius: '50%',
               background: 'var(--border-light)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
             }}>
-              <div className="spinner spinner-dark" style={{ width: '32px', height: '32px' }} />
+              <div className="spinner spinner-dark" style={{ width: '28px', height: '28px' }} />
             </div>
             <p style={{
-              marginTop: '20px',
-              fontSize: '17px',
+              marginTop: '16px',
+              fontSize: '16px',
               fontWeight: '500',
               color: 'var(--text)'
             }}>
-              Procesando QR...
-            </p>
-            <p style={{
-              marginTop: '8px',
-              color: 'var(--text-muted)',
-              fontSize: '14px'
-            }}>
-              Obteniendo información
+              Procesando...
             </p>
           </div>
         ) : (
-          /* Scanning State */
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div className="card" style={{
-              padding: '16px',
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              {/* Camera container - aspect ratio 4:3 */}
+            <div className="card" style={{ padding: '16px' }}>
               <div style={{
                 width: '100%',
                 aspectRatio: '4/3',
-                borderRadius: 'var(--radius-sm)',
+                borderRadius: '12px',
                 overflow: 'hidden',
                 background: '#000',
-                position: 'relative'
               }}>
                 <video
                   ref={videoRef}
                   playsInline
                   muted
                   autoPlay
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
               </div>
 
-              {/* Recent Scans above instructions */}
-              <RecentScans />
-
               <p style={{
                 textAlign: 'center',
-                marginTop: '16px',
-                color: 'var(--text-secondary)',
-                fontSize: '14px'
+                marginTop: '12px',
+                color: 'var(--text-muted)',
+                fontSize: '13px'
               }}>
-                Apunta la cámara al código QR
+                Apunta al codigo QR
               </p>
 
               <button
                 onClick={stopScanner}
-                className="btn-secondary btn-large"
-                style={{ marginTop: '16px' }}
+                style={{
+                  width: '100%',
+                  marginTop: '12px',
+                  padding: '12px',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
               >
                 Cancelar
               </button>
@@ -448,6 +436,82 @@ export default function Scanner({ onScan }) {
         )}
       </div>
 
+      {/* History View */}
+      {showHistory && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'var(--bg)',
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          {/* Header with safe area - iOS style */}
+          <div style={{
+            background: 'white',
+            borderBottom: '1px solid var(--border-light)',
+            paddingTop: 'env(safe-area-inset-top, 0px)',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 16px',
+              minHeight: '44px',
+            }}>
+              {/* Back button - iOS style text */}
+              <button
+                onClick={() => {
+                  haptics.light();
+                  setShowHistory(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '8px 4px',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: 'var(--primary)',
+                  fontSize: '16px',
+                  fontWeight: '400',
+                }}
+              >
+                <BackIcon />
+                <span>Atras</span>
+              </button>
+
+              {/* Title centered */}
+              <span style={{
+                position: 'absolute',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '17px',
+                fontWeight: '600',
+                color: 'var(--text)',
+              }}>
+                Historial
+              </span>
+
+              {/* Spacer for balance */}
+              <div style={{ width: '60px' }} />
+            </div>
+          </div>
+
+          <div style={{
+            flex: 1,
+            overflow: 'auto',
+            padding: '16px',
+            paddingBottom: '100px',
+          }}>
+            <History />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

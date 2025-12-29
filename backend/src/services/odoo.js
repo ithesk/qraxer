@@ -201,7 +201,7 @@ class OdooClient {
     const repairs = await this.execute('repair.order', 'search_read', [
       [['name', '=', code]],
     ], {
-      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'description'],
+      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'user_id', 'description'],
       limit: 1,
     }, userId);
 
@@ -333,6 +333,72 @@ class OdooClient {
   }
 
   /**
+   * Buscar producto por nombre (modelo de equipo)
+   */
+  async searchProduct(name, userId) {
+    log('Buscando producto:', name);
+
+    const products = await this.execute('product.product', 'search_read', [
+      [['name', '=ilike', name]],
+    ], {
+      fields: ['id', 'name', 'default_code'],
+      limit: 1,
+    }, userId);
+
+    if (products && products.length > 0) {
+      log('Producto encontrado:', products[0].id, products[0].name);
+      return products[0];
+    }
+
+    log('Producto no encontrado');
+    return null;
+  }
+
+  /**
+   * Crear producto (modelo de equipo) en Odoo
+   */
+  async createProduct(name, brand, userId) {
+    log('Creando producto:', name, '- Marca:', brand);
+
+    const productData = {
+      name: name,
+      default_code: brand ? `${brand.toUpperCase().slice(0, 3)}-${name.replace(/\s+/g, '-').toUpperCase()}` : null,
+      type: 'consu', // Consumible (no requiere inventario)
+      categ_id: 1, // Categoría por defecto
+    };
+
+    const productId = await this.execute('product.product', 'create', [productData], {}, userId);
+
+    log('Producto creado con ID:', productId);
+
+    return { id: productId, name: name };
+  }
+
+  /**
+   * Buscar o crear producto (modelo de equipo)
+   * Evita duplicados buscando primero
+   */
+  async findOrCreateProduct(modelName, brand, userId) {
+    log('findOrCreateProduct:', modelName);
+
+    if (!modelName) {
+      log('No se proporcionó nombre de modelo');
+      return null;
+    }
+
+    // Buscar primero
+    let product = await this.searchProduct(modelName, userId);
+
+    if (product) {
+      return product;
+    }
+
+    // No existe, crear
+    product = await this.createProduct(modelName, brand, userId);
+    return product;
+  }
+
+  /**
    * Crear nueva orden de reparación
    */
   async createRepairOrder(data, userId, userName) {
@@ -352,13 +418,37 @@ class OdooClient {
       .map(p => problemLabels[p] || p)
       .join(', ');
 
+    // Incluir estado del equipo en descripción
+    const statusText = data.equipment?.status === 'on' ? 'Encendido' :
+                       data.equipment?.status === 'off' ? 'Apagado' : 'No especificado';
+
     const description = [
       `Marca: ${data.equipment?.brand || 'N/A'}`,
       `Modelo: ${data.equipment?.model || 'N/A'}`,
       data.equipment?.serial ? `IMEI/Serial: ${data.equipment.serial}` : null,
+      `Estado: ${statusText}`,
+      data.equipment?.hasPassword ? `Contraseña: ${data.equipment.password || 'Sí (no proporcionada)'}` : null,
       `Problema: ${problemText || 'No especificado'}`,
       data.note ? `Nota: ${data.note}` : null,
     ].filter(Boolean).join('\n');
+
+    // Buscar o crear producto (modelo del equipo) para product_id
+    let productId = null;
+    if (data.equipment?.model) {
+      try {
+        const product = await this.findOrCreateProduct(
+          data.equipment.model,
+          data.equipment.brand,
+          userId
+        );
+        if (product) {
+          productId = product.id;
+        }
+      } catch (e) {
+        log('Warning: No se pudo obtener/crear producto:', e.message);
+        // Continuar sin product_id
+      }
+    }
 
     const repairData = {
       partner_id: data.clientId,
@@ -366,6 +456,28 @@ class OdooClient {
       state: 'draft',
       user_id: userId,
     };
+
+    // Agregar product_id solo si existe
+    if (productId) {
+      repairData.product_id = productId;
+    }
+
+    // Agregar campos personalizados si existen en Odoo
+    // power_state: 'on' | 'off'
+    // device_password: string
+    // device_locked: boolean
+    if (data.equipment?.status) {
+      repairData.x_power_state = data.equipment.status; // Campo personalizado
+    }
+    if (data.equipment?.hasPassword !== undefined) {
+      repairData.x_device_locked = data.equipment.hasPassword;
+    }
+    if (data.equipment?.password) {
+      repairData.x_device_password = data.equipment.password;
+    }
+    if (data.equipment?.serial) {
+      repairData.x_serial_number = data.equipment.serial;
+    }
 
     // Crear la orden
     const repairId = await this.execute('repair.order', 'create', [repairData], {}, userId);

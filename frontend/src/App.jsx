@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from './services/api';
 import Login from './components/Login';
-import Scanner from './components/Scanner';
-import RepairConfirm from './components/RepairConfirm';
-import Result from './components/Result';
 import ToastContainer from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
 import OfflineBanner from './components/OfflineBanner';
 import BottomNav from './components/BottomNav';
-import QuickCreator from './components/QuickCreator/QuickCreator';
-import History from './components/History';
-import ProductScanner from './components/ProductScanner';
 
-const APP_VERSION = '2.1.7-exp';
+// Lazy load heavy components
+const Scanner = lazy(() => import('./components/Scanner'));
+const RepairConfirm = lazy(() => import('./components/RepairConfirm'));
+const Result = lazy(() => import('./components/Result'));
+const QuickCreator = lazy(() => import('./components/QuickCreator/QuickCreator'));
+const ProductScanner = lazy(() => import('./components/ProductScanner'));
+
+const APP_VERSION = '2.2.5';
 
 // Scanner tab sub-views
 const SCANNER_VIEWS = {
@@ -20,6 +21,18 @@ const SCANNER_VIEWS = {
   CONFIRM: 'confirm',
   RESULT: 'result',
 };
+
+// Loading spinner for lazy components
+const LazySpinner = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '200px'
+  }}>
+    <div className="spinner spinner-dark" />
+  </div>
+);
 
 // Logo QR icon
 const QRLogoIcon = () => (
@@ -66,15 +79,20 @@ const STORAGE_KEYS = {
 };
 
 export default function App() {
+  // Splash state
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Tab navigation - restore from localStorage
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return saved && ['scanner', 'creator', 'products', 'history'].includes(saved) ? saved : 'scanner';
+    return saved && ['scanner', 'creator', 'products'].includes(saved) ? saved : 'scanner';
   });
 
   // Scanner tab state
@@ -83,17 +101,32 @@ export default function App() {
   const [qrContent, setQrContent] = useState(null);
   const [result, setResult] = useState(null);
 
+  // Check auth and hide splash
+  useEffect(() => {
+    const initApp = async () => {
+      // Check authentication
+      if (api.isAuthenticated()) {
+        setUser(api.getUser());
+        setIsLoggedIn(true);
+      }
+      setAuthChecked(true);
+
+      // Minimum splash time for smooth UX
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Fade out splash
+      setSplashFading(true);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setShowSplash(false);
+    };
+
+    initApp();
+  }, []);
+
   // Persist active tab
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
   }, [activeTab]);
-
-  useEffect(() => {
-    if (api.isAuthenticated()) {
-      setUser(api.getUser());
-      setIsLoggedIn(true);
-    }
-  }, []);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -124,10 +157,8 @@ export default function App() {
   };
 
   const handleUpdate = (updateResult) => {
-    console.log('[App] handleUpdate recibido:', updateResult);
     setResult(updateResult);
     setScannerView(SCANNER_VIEWS.RESULT);
-    console.log('[App] Vista cambiada a RESULT');
   };
 
   const handleNewScan = () => {
@@ -150,6 +181,11 @@ export default function App() {
       setScannerView(SCANNER_VIEWS.SCANNER);
     }
   };
+
+  // Show splash screen
+  if (showSplash) {
+    return <SplashScreen fading={splashFading} />;
+  }
 
   return (
     <>
@@ -246,7 +282,7 @@ export default function App() {
         )}
 
         {isLoggedIn && activeTab === 'scanner' && (
-          <>
+          <Suspense fallback={<LazySpinner />}>
             {scannerView === SCANNER_VIEWS.SCANNER && (
               <Scanner onScan={handleScan} />
             )}
@@ -263,19 +299,19 @@ export default function App() {
             {scannerView === SCANNER_VIEWS.RESULT && result && (
               <Result result={result} onNewScan={handleNewScan} />
             )}
-          </>
+          </Suspense>
         )}
 
         {isLoggedIn && activeTab === 'creator' && (
-          <QuickCreator />
+          <Suspense fallback={<LazySpinner />}>
+            <QuickCreator />
+          </Suspense>
         )}
 
         {isLoggedIn && activeTab === 'products' && (
-          <ProductScanner />
-        )}
-
-        {isLoggedIn && activeTab === 'history' && (
-          <History />
+          <Suspense fallback={<LazySpinner />}>
+            <ProductScanner />
+          </Suspense>
         )}
       </main>
 
@@ -300,6 +336,79 @@ export default function App() {
   );
 }
 
+// Splash Screen Component
+function SplashScreen({ fading }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+      zIndex: 9999,
+      opacity: fading ? 0 : 1,
+      transition: 'opacity 0.3s ease-out'
+    }}>
+      {/* Logo */}
+      <div style={{
+        width: '80px',
+        height: '80px',
+        background: 'white',
+        borderRadius: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '20px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+      }}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="5" y="5" width="3" height="3" fill="#2563eb" stroke="none" />
+          <rect x="16" y="5" width="3" height="3" fill="#2563eb" stroke="none" />
+          <rect x="5" y="16" width="3" height="3" fill="#2563eb" stroke="none" />
+          <rect x="14" y="14" width="3" height="3" />
+          <rect x="18" y="18" width="3" height="3" />
+        </svg>
+      </div>
+
+      {/* App Name */}
+      <h1 style={{
+        color: 'white',
+        fontSize: '28px',
+        fontWeight: '700',
+        margin: '0 0 8px 0',
+        letterSpacing: '-0.5px'
+      }}>
+        QRaxer
+      </h1>
+
+      {/* Tagline */}
+      <p style={{
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: '14px',
+        margin: 0
+      }}>
+        Escáner de Reparaciones
+      </p>
+
+      {/* Loading indicator */}
+      <div style={{
+        marginTop: '40px',
+        width: '24px',
+        height: '24px',
+        border: '3px solid rgba(255,255,255,0.3)',
+        borderTopColor: 'white',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+    </div>
+  );
+}
+
 // Small dot indicator for version updates
 function VersionUpdateDot({ currentVersion }) {
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -316,24 +425,16 @@ function VersionUpdateDot({ currentVersion }) {
   }, [currentVersion]);
 
   const checkForUpdates = async () => {
-    console.log('[VersionCheck] Verificando actualizaciones...');
     try {
       const response = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
-      console.log('[VersionCheck] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('[VersionCheck] Versión en servidor:', data.version, '- Versión actual:', currentVersion);
         if (data.version && data.version !== currentVersion) {
-          console.log('[VersionCheck] Nueva versión disponible!');
           setUpdateAvailable(true);
-        } else {
-          console.log('[VersionCheck] Ya tienes la última versión');
         }
-      } else {
-        console.log('[VersionCheck] Error en respuesta:', response.statusText);
       }
     } catch (e) {
-      console.error('[VersionCheck] Error:', e.message);
+      // Silent fail
     }
   };
 

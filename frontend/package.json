@@ -1,7 +1,7 @@
 {
   "name": "qraxer-pwa",
   "private": true,
-  "version": "2.0.0-experimental",
+  "version": "2.2.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,9 +13,12 @@
   },
   "dependencies": {
     "@capacitor-mlkit/barcode-scanning": "^8.0.0",
-    "@capacitor/cli": "^7.4.4",
+    "@capacitor/cli": "^8.0.0",
     "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "@capgo/capacitor-native-biometric": "^8.0.3",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "html5-qrcode": "^2.3.8",
