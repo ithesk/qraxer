@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.js';
 import repairRoutes from './routes/repair.js';
 import clientsRoutes from './routes/clients.js';
 import productsRoutes from './routes/products.js';
+import inventoryRoutes from './routes/inventory.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
@@ -43,6 +44,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/repair', repairRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/products', productsRoutes);
+app.use('/api/inventory', inventoryRoutes);
 
 // Error handling
 app.use(errorHandler);
