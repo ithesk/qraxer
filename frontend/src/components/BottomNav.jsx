@@ -31,6 +31,23 @@ const ProductIcon = ({ active }) => (
   </svg>
 );
 
+const InventoryIcon = ({ active }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+    <rect x="4" y="3" width="16" height="18" rx="2" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 7h8" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 11h8" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 15h5" stroke={active ? 'var(--primary)' : 'currentColor'} />
+  </svg>
+);
+
+const OcrIcon = ({ active }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 9h8" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 13h6" stroke={active ? 'var(--primary)' : 'currentColor'} />
+  </svg>
+);
+
 export default function BottomNav({ activeTab, onTabChange }) {
   const handleTabClick = (id) => {
     if (id !== activeTab) {
@@ -44,17 +61,31 @@ export default function BottomNav({ activeTab, onTabChange }) {
   return (
     <nav className="bottom-nav">
       <div className="bottom-nav-inner">
-        {/* Escanear / Reparaciones */}
-        <button
-          className={`bottom-nav-item ${activeTab === 'scanner' ? 'active' : ''}`}
-          onClick={() => handleTabClick('scanner')}
-          aria-label="Reparaciones"
-        >
-          <span className="bottom-nav-icon">
-            <ScanIcon active={activeTab === 'scanner'} />
-          </span>
-          <span className="bottom-nav-label">Reparaciones</span>
-        </button>
+        <div className="bottom-nav-group">
+          {/* Escanear / Reparaciones */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'scanner' ? 'active' : ''}`}
+            onClick={() => handleTabClick('scanner')}
+            aria-label="Reparaciones"
+          >
+            <span className="bottom-nav-icon">
+              <ScanIcon active={activeTab === 'scanner'} />
+            </span>
+            <span className="bottom-nav-label">Reparaciones</span>
+          </button>
+
+          {/* Inventario */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => handleTabClick('inventory')}
+            aria-label="Inventario"
+          >
+            <span className="bottom-nav-icon">
+              <InventoryIcon active={activeTab === 'inventory'} />
+            </span>
+            <span className="bottom-nav-label">Inventario</span>
+          </button>
+        </div>
 
         {/* Crear - FAB prominente centrado */}
         <button
@@ -68,17 +99,31 @@ export default function BottomNav({ activeTab, onTabChange }) {
           </svg>
         </button>
 
-        {/* Productos */}
-        <button
-          className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
-          onClick={() => handleTabClick('products')}
-          aria-label="Productos"
-        >
-          <span className="bottom-nav-icon">
-            <ProductIcon active={activeTab === 'products'} />
-          </span>
-          <span className="bottom-nav-label">Productos</span>
-        </button>
+        <div className="bottom-nav-group">
+          {/* mo35 OCR */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'mo35' ? 'active' : ''}`}
+            onClick={() => handleTabClick('mo35')}
+            aria-label="mo35"
+          >
+            <span className="bottom-nav-icon">
+              <OcrIcon active={activeTab === 'mo35'} />
+            </span>
+            <span className="bottom-nav-label">mo35</span>
+          </button>
+
+          {/* Productos */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => handleTabClick('products')}
+            aria-label="Productos"
+          >
+            <span className="bottom-nav-icon">
+              <ProductIcon active={activeTab === 'products'} />
+            </span>
+            <span className="bottom-nav-label">Productos</span>
+          </button>
+        </div>
       </div>
     </nav>
   );

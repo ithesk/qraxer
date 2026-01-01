@@ -1,10 +1,12 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from './services/api';
 import Login from './components/Login';
-import ToastContainer from './components/Toast';
+import ToastContainer, { toast } from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
 import OfflineBanner from './components/OfflineBanner';
 import BottomNav from './components/BottomNav';
+import Mo35OcrScreen from './components/Mo35OcrScreen';
+import ProfileScreen from './components/ProfileScreen';
 
 // Lazy load heavy components
 const Scanner = lazy(() => import('./components/Scanner'));
@@ -12,8 +14,9 @@ const RepairConfirm = lazy(() => import('./components/RepairConfirm'));
 const Result = lazy(() => import('./components/Result'));
 const QuickCreator = lazy(() => import('./components/QuickCreator/QuickCreator'));
 const ProductScanner = lazy(() => import('./components/ProductScanner'));
+const InventoryCountPage = lazy(() => import('./pages/InventoryCountPage'));
 
-const APP_VERSION = '2.2.5';
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
 
 // Scanner tab sub-views
 const SCANNER_VIEWS = {
@@ -57,6 +60,14 @@ const LogoutIcon = () => (
   </svg>
 );
 
+// Notification bell icon
+const BellIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
 // User avatar with initials
 const UserAvatar = ({ user }) => {
   const getInitials = () => {
@@ -86,13 +97,14 @@ export default function App() {
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showProfileScreen, setShowProfileScreen] = useState(false);
+  const [showMo35Ocr, setShowMo35Ocr] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
   // Tab navigation - restore from localStorage
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return saved && ['scanner', 'creator', 'products'].includes(saved) ? saved : 'scanner';
+    return saved && ['scanner', 'creator', 'products', 'inventory', 'mo35'].includes(saved) ? saved : 'scanner';
   });
 
   // Scanner tab state
@@ -100,6 +112,22 @@ export default function App() {
   const [scanData, setScanData] = useState(null);
   const [qrContent, setQrContent] = useState(null);
   const [result, setResult] = useState(null);
+
+  const handleProfile = () => {
+    toast.info('Perfil: pronto');
+  };
+
+  const handleSettings = () => {
+    toast.info('Ajustes: pronto');
+  };
+
+  const openProfileScreen = () => {
+    setShowProfileScreen(true);
+  };
+
+  const closeProfileScreen = () => {
+    setShowProfileScreen(false);
+  };
 
   // Check auth and hide splash
   useEffect(() => {
@@ -145,8 +173,20 @@ export default function App() {
     setScannerView(SCANNER_VIEWS.SCANNER);
   };
 
+  const handleNotifications = () => {
+    toast.show('Notificaciones pronto', 'warning', 2000);
+  };
+
   const toggleUserMenu = () => {
     setShowUserMenu(!showUserMenu);
+  };
+
+  const openMo35Ocr = () => {
+    setShowMo35Ocr(true);
+  };
+
+  const closeMo35Ocr = () => {
+    setShowMo35Ocr(false);
   };
 
   // Scanner tab handlers
@@ -191,97 +231,63 @@ export default function App() {
     <>
       <ToastContainer />
       <OfflineBanner />
-      <header className="header">
-        <div className="header-content">
-          {/* Left: Logo and App Name */}
-          <div className="header-brand">
-            <div className="header-logo" style={{ position: 'relative' }}>
-              <QRLogoIcon />
-              <ConnectionDot />
-            </div>
-            <div className="header-titles">
-              <h1 className="header-title">QRaxer</h1>
-              <p className="header-tagline">Escáner de Reparaciones</p>
-            </div>
-          </div>
-
-          {/* Right: User Info with Dropdown */}
-          {user && (
-            <div style={{ position: 'relative' }}>
-              <div
-                className="header-user"
-                onClick={toggleUserMenu}
-                style={{ cursor: 'pointer' }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && toggleUserMenu()}
+      {!showProfileScreen && (
+        <header className="header">
+          <div className="header-content">
+            {/* Minimal header: app icon, notifications, avatar */}
+            <div className="header-minimal">
+              <button
+                className="header-logo header-logo-button"
+                onClick={openMo35Ocr}
+                aria-label="Abrir OCR mo35"
+                style={{ position: 'relative' }}
               >
-                <UserAvatar user={user} />
-                <span className="header-user-name">{user.name || user.username}</span>
-              </div>
-
-              {/* Dropdown Menu */}
-              {showUserMenu && (
-                <>
-                  {/* Backdrop to close menu */}
+                <QRLogoIcon />
+                <ConnectionDot />
+              </button>
+              {user && (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    className="btn-icon btn-secondary header-notification-button"
+                    onClick={handleNotifications}
+                    aria-label="Notificaciones"
+                  >
+                    <BellIcon />
+                  </button>
                   <div
-                    onClick={() => setShowUserMenu(false)}
-                    style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      zIndex: 99
-                    }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '8px',
-                    background: 'white',
-                    borderRadius: 'var(--radius-md)',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                    border: '1px solid var(--border-light)',
-                    minWidth: '160px',
-                    zIndex: 100,
-                    overflow: 'hidden'
-                  }}>
-                    <button
-                      onClick={handleLogout}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        color: 'var(--error)',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <LogoutIcon />
-                      Cerrar sesion
-                    </button>
+                    className="header-user"
+                    onClick={openProfileScreen}
+                    style={{ cursor: 'pointer' }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && openProfileScreen()}
+                  >
+                    <UserAvatar user={user} />
                   </div>
-                </>
+                </div>
               )}
             </div>
-          )}
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
-      <main className="container main-content">
+      <main className={showProfileScreen ? 'main-content profile-screen-main' : 'container main-content'}>
         {!isLoggedIn && (
           <Login onSuccess={handleLogin} />
         )}
 
-        {isLoggedIn && activeTab === 'scanner' && (
+        {isLoggedIn && showProfileScreen && (
+          <ProfileScreen
+            user={user}
+            version={APP_VERSION}
+            onBack={closeProfileScreen}
+            onProfile={handleProfile}
+            onSettings={handleSettings}
+            onLogout={handleLogout}
+          />
+        )}
+
+        {isLoggedIn && !showProfileScreen && activeTab === 'scanner' && (
           <Suspense fallback={<LazySpinner />}>
             {scannerView === SCANNER_VIEWS.SCANNER && (
               <Scanner onScan={handleScan} />
@@ -302,24 +308,34 @@ export default function App() {
           </Suspense>
         )}
 
-        {isLoggedIn && activeTab === 'creator' && (
+        {isLoggedIn && !showProfileScreen && activeTab === 'creator' && (
           <Suspense fallback={<LazySpinner />}>
             <QuickCreator />
           </Suspense>
         )}
 
-        {isLoggedIn && activeTab === 'products' && (
+        {isLoggedIn && !showProfileScreen && activeTab === 'products' && (
           <Suspense fallback={<LazySpinner />}>
             <ProductScanner />
           </Suspense>
         )}
+
+        {isLoggedIn && !showProfileScreen && activeTab === 'inventory' && (
+          <Suspense fallback={<LazySpinner />}>
+            <InventoryCountPage />
+          </Suspense>
+        )}
+
+        {isLoggedIn && !showProfileScreen && activeTab === 'mo35' && (
+          <Mo35OcrScreen onClose={() => setActiveTab('scanner')} fullScreen={false} />
+        )}
       </main>
 
-      {isLoggedIn && (
+      {isLoggedIn && !showProfileScreen && (
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       )}
 
-      <footer style={{
+      <footer className="app-footer" style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -332,6 +348,10 @@ export default function App() {
         <span>v{APP_VERSION}</span>
         <VersionUpdateDot currentVersion={APP_VERSION} />
       </footer>
+
+      {showMo35Ocr && (
+        <Mo35OcrScreen onClose={closeMo35Ocr} />
+      )}
     </>
   );
 }

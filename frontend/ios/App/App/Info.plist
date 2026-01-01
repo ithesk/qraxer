@@ -22,6 +22,14 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Usamos la camara para leer texto y detectar IMEI.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Usamos la galeria para guardar o seleccionar imagenes para OCR.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Usamos la galeria para seleccionar imagenes y realizar OCR.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usamos Face ID para iniciar sesion de forma rapida y segura.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

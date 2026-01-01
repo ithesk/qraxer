@@ -357,6 +357,48 @@ class ApiService {
       };
     }
   }
+
+  // === Inventory Methods ===
+
+  /**
+   * Get inventory locations from Odoo
+   * @returns {Promise<{locations: Array<{id: number, name: string, complete_name: string}>}>}
+   */
+  async getInventoryLocations() {
+    const response = await this.request('/inventory/locations', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener ubicaciones');
+    }
+
+    return data;
+  }
+
+  /**
+   * Submit inventory count
+   * @param {Array<{barcode: string, product_id: number, quantity: number, product_name: string}>} items
+   * @param {number} locationId - Stock location ID
+   * @param {string} notes - Optional notes
+   * @returns {Promise<{success: boolean, adjustment_id: number}>}
+   */
+  async submitInventoryCount(items, locationId, notes = '') {
+    const response = await this.request('/inventory/count', {
+      method: 'POST',
+      body: JSON.stringify({ items, locationId, notes }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al enviar conteo');
+    }
+
+    return data;
+  }
 }
 
 export const api = new ApiService();

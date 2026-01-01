@@ -48,6 +48,16 @@ export default function Login({ onSuccess }) {
   // Check biometrics on mount
   useEffect(() => {
     checkBiometrics();
+    const savedUsername = localStorage.getItem('savedUsername') || localStorage.getItem('biometrics_username');
+    const savedPassword = localStorage.getItem('savedPassword');
+    const rememberFlag = localStorage.getItem('rememberMe') === 'true';
+    if (savedUsername) {
+      setUsername(savedUsername);
+    }
+    if (rememberFlag && savedPassword) {
+      setPassword(savedPassword);
+    }
+    setRememberMe(rememberFlag || !!savedUsername);
   }, []);
 
   const checkBiometrics = async () => {
@@ -117,9 +127,23 @@ export default function Login({ onSuccess }) {
         console.log('[Login] Resultado de guardar credenciales:', saved);
         if (saved) {
           console.log('[Login] Credenciales guardadas para Face ID exitosamente');
+          setHasStoredCredentials(true);
         } else {
           console.error('[Login] Fallo al guardar credenciales');
         }
+      }
+      if (rememberMe) {
+        localStorage.setItem('rememberMe', 'true');
+        localStorage.setItem('savedUsername', username);
+        if (!biometricsAvailable) {
+          localStorage.setItem('savedPassword', password);
+        } else {
+          localStorage.removeItem('savedPassword');
+        }
+      } else {
+        localStorage.removeItem('rememberMe');
+        localStorage.removeItem('savedUsername');
+        localStorage.removeItem('savedPassword');
       }
 
       haptics.success();
