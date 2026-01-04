@@ -8,6 +8,13 @@ version: '3.8'
 # - ODOO_ADMIN_USER
 # - ODOO_ADMIN_PASSWORD
 # - QR_HMAC_SECRET
+#
+# Variables opcionales para Push Notifications (APNs):
+# - APNS_KEY_PATH (ej: /app/keys/AuthKey_XXXXX.p8)
+# - APNS_KEY_ID
+# - APNS_TEAM_ID
+# - APNS_BUNDLE_ID (default: com.qraxer.app)
+# Nota: Crear carpeta 'keys' en el servidor con el archivo .p8
 
 services:
   backend:
@@ -35,6 +42,14 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS:-900000}
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS:-100}
+      # APNs Push Notifications (opcional - dejar vacío para desactivar)
+      - APNS_KEY_PATH=${APNS_KEY_PATH:-}
+      - APNS_KEY_ID=${APNS_KEY_ID:-}
+      - APNS_TEAM_ID=${APNS_TEAM_ID:-}
+      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-com.qraxer.app}
+    volumes:
+      # Montar carpeta de keys para APNs (crear en servidor si se usa)
+      - ./keys:/app/keys:ro
     networks:
       - qraxer-v2-network
     healthcheck:

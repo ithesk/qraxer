@@ -61,6 +61,16 @@ export const config = {
     windowMs: parseInt(optional('RATE_LIMIT_WINDOW_MS', '900000'), 10),
     max: parseInt(optional('RATE_LIMIT_MAX_REQUESTS', '100'), 10),
   },
+
+  // APNs (Apple Push Notifications) - OPCIONAL
+  // Si no se configura, el sistema usa polling
+  apns: {
+    enabled: !!process.env.APNS_KEY_PATH,
+    keyPath: optional('APNS_KEY_PATH', ''),
+    keyId: optional('APNS_KEY_ID', ''),
+    teamId: optional('APNS_TEAM_ID', ''),
+    bundleId: optional('APNS_BUNDLE_ID', 'com.qraxer.app'),
+  },
 };
 
 export default config;

@@ -24,6 +24,14 @@ services:
       - QR_EXPIRATION_MINUTES=${QR_EXPIRATION_MINUTES:-60}
       - ALLOW_SIMPLE_QR=${ALLOW_SIMPLE_QR:-true}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      # APNs Push Notifications (opcional)
+      - APNS_KEY_PATH=${APNS_KEY_PATH:-}
+      - APNS_KEY_ID=${APNS_KEY_ID:-}
+      - APNS_TEAM_ID=${APNS_TEAM_ID:-}
+      - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-com.qraxer.app}
+    volumes:
+      # Montar carpeta de keys para APNs (opcional)
+      - ./backend/keys:/app/keys:ro
     networks:
       - qraxer-network
     healthcheck:

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { odooClient } from '../services/odoo.js';
 import { qrService } from '../services/qr.js';
+import { apnsService } from '../services/apns.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
@@ -304,7 +305,7 @@ router.post('/checkin', async (req, res, next) => {
       state: repair.state,
     };
 
-    // Guardar en memoria para polling (temporal hasta implementar push)
+    // Guardar en memoria para polling (fallback si no hay push)
     if (!global.checkinNotifications) {
       global.checkinNotifications = [];
     }
@@ -312,6 +313,19 @@ router.post('/checkin', async (req, res, next) => {
     // Mantener solo las últimas 50 notificaciones
     if (global.checkinNotifications.length > 50) {
       global.checkinNotifications = global.checkinNotifications.slice(0, 50);
+    }
+
+    // Enviar push notification al técnico (si está configurado)
+    let pushResult = { sent: 0, failed: 0 };
+    if (technician?.id) {
+      try {
+        pushResult = await apnsService.sendCheckinNotification(technician.id, checkinNotification);
+        if (pushResult.sent > 0) {
+          logger.info(`[CHECKIN] Push enviado a técnico ${technician.name}`);
+        }
+      } catch (e) {
+        logger.warn('[CHECKIN] Error enviando push:', e.message);
+      }
     }
 
     res.json({
@@ -324,6 +338,10 @@ router.post('/checkin', async (req, res, next) => {
         state: repair.state,
         partner: repair.partner_id ? repair.partner_id[1] : null,
         technician: technician,
+      },
+      push: {
+        enabled: apnsService.isEnabled(),
+        sent: pushResult.sent,
       },
     });
   } catch (error) {

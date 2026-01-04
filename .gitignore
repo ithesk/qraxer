@@ -41,3 +41,7 @@ coverage/
 
 # Claude
 .claude/
+
+# APNs Keys (NUNCA subir a git)
+*.p8
+backend/keys/*.p8

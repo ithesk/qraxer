@@ -8,7 +8,9 @@ import repairRoutes from './routes/repair.js';
 import clientsRoutes from './routes/clients.js';
 import productsRoutes from './routes/products.js';
 import inventoryRoutes from './routes/inventory.js';
+import devicesRoutes from './routes/devices.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { apnsService } from './services/apns.js';
 
 const app = express();
 
@@ -45,9 +47,17 @@ app.use('/api/repair', repairRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/devices', devicesRoutes);
 
 // Error handling
 app.use(errorHandler);
+
+// Initialize APNs (optional - continues without if not configured)
+apnsService.initialize().then(enabled => {
+  if (enabled) {
+    console.log('APNs push notifications enabled');
+  }
+});
 
 // Start server - bind to 0.0.0.0 for network access
 app.listen(config.port, '0.0.0.0', () => {
