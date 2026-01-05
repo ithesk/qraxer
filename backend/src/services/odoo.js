@@ -720,7 +720,9 @@ class OdooClient {
       branches,
       leadSources,
       defaults: {
-        leadSource: leadSources.length > 0 ? leadSources[0].value : 'walk_in',
+        // Solo incluir leadSource si hay valores disponibles de Odoo
+        // Si no hay, no enviar nada y Odoo usará su default
+        leadSource: leadSources.length > 0 ? leadSources[0].value : '',
         deliveryDate: defaultDeliveryStr,
         estimatedBudget: 0,
       },
