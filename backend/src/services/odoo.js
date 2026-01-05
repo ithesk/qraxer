@@ -628,7 +628,7 @@ class OdooClient {
       log('Sucursales encontradas:', branches.length);
       return branches;
     } catch (e) {
-      log('Error obteniendo sucursales:', e.message);
+      logError('Error obteniendo sucursales:', e.message);
       return [];
     }
   }
@@ -654,7 +654,7 @@ class OdooClient {
         return sources;
       }
     } catch (e) {
-      log('Error obteniendo fuentes de lead:', e.message);
+      logError('Error obteniendo fuentes de lead:', e.message);
     }
 
     // Valores por defecto
