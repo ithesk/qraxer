@@ -12,6 +12,18 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
+ * Helper para obtener userInfo completo del request
+ * Esto permite que Odoo re-autentique si la sesión expiró
+ */
+function getUserInfo(req) {
+  return {
+    userId: req.user.userId,
+    username: req.user.username,
+    password: req.user.odooPassword,
+  };
+}
+
+/**
  * POST /api/repair/scan
  * Escanear y validar QR de reparación
  * Acepta códigos simples (E707640) o firmados
@@ -19,13 +31,13 @@ router.use(authMiddleware);
 router.post('/scan', async (req, res, next) => {
   try {
     const { qrContent } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
 
     if (!qrContent) {
       throw new AppError('Contenido de QR requerido', 400);
     }
 
-    logger.debug('QR recibido - Usuario:', userId);
+    logger.debug('QR recibido - Usuario:', userInfo.userId);
 
     // Validar QR
     const qrResult = qrService.validateQRContent(qrContent);
@@ -35,14 +47,14 @@ router.post('/scan', async (req, res, next) => {
     }
 
     // Buscar reparación por código (name) usando sesión del usuario
-    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userId);
+    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userInfo);
 
     if (!repair) {
       throw new AppError(`Reparacion ${qrResult.repairCode} no encontrada`, 404);
     }
 
     // Obtener estados disponibles
-    const states = await odooClient.getRepairStates(userId);
+    const states = await odooClient.getRepairStates(userInfo);
 
     res.json({
       repair: {
@@ -67,7 +79,7 @@ router.post('/scan', async (req, res, next) => {
 router.post('/update-state', async (req, res, next) => {
   try {
     const { qrContent, newState, note } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
     if (!qrContent || !newState) {
@@ -82,14 +94,14 @@ router.post('/update-state', async (req, res, next) => {
     }
 
     // Buscar reparación por código
-    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userId);
+    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userInfo);
 
     if (!repair) {
       throw new AppError(`Reparacion ${qrResult.repairCode} no encontrada`, 404);
     }
 
     // Validar que el estado sea válido
-    const validStates = await odooClient.getRepairStates(userId);
+    const validStates = await odooClient.getRepairStates(userInfo);
     const isValidState = validStates.some(s => s.value === newState);
 
     if (!isValidState) {
@@ -101,7 +113,7 @@ router.post('/update-state', async (req, res, next) => {
       repair.id,
       newState,
       note || null,
-      userId,
+      userInfo,
       userName
     );
 
@@ -124,8 +136,8 @@ router.post('/update-state', async (req, res, next) => {
  */
 router.get('/states', async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-    const states = await odooClient.getRepairStates(userId);
+    const userInfo = getUserInfo(req);
+    const states = await odooClient.getRepairStates(userInfo);
     res.json({ states });
   } catch (error) {
     next(error);
@@ -139,12 +151,7 @@ router.get('/states', async (req, res, next) => {
  */
 router.get('/config', async (req, res, next) => {
   try {
-    // Pasar userInfo completo para permitir re-autenticación si la sesión expiró
-    const userInfo = {
-      userId: req.user.userId,
-      username: req.user.username,
-      password: req.user.odooPassword,
-    };
+    const userInfo = getUserInfo(req);
     const config = await odooClient.getRepairConfig(userInfo);
     res.json(config);
   } catch (error) {
@@ -159,14 +166,14 @@ router.get('/config', async (req, res, next) => {
 router.post('/generate-qr', async (req, res, next) => {
   try {
     const { repairCode } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
 
     if (!repairCode) {
       throw new AppError('Codigo de reparacion requerido', 400);
     }
 
     // Verificar que la reparación existe
-    const repair = await odooClient.getRepairByCode(repairCode, userId);
+    const repair = await odooClient.getRepairByCode(repairCode, userInfo);
 
     if (!repair) {
       throw new AppError('Reparacion no encontrada', 404);
@@ -207,17 +214,17 @@ router.post('/create', async (req, res, next) => {
       estimatedBudget,
       idempotencyKey,
     } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
     // IDEMPOTENCY CHECK: Si hay key, verificar si ya existe la orden
     if (idempotencyKey) {
-      const existing = idempotencyService.check(idempotencyKey, userId);
+      const existing = idempotencyService.check(idempotencyKey, userInfo.userId);
       if (existing) {
         logger.debug('Orden duplicada detectada, retornando existente:', existing.repairName);
 
         // Obtener datos completos de la orden existente
-        const existingRepair = await odooClient.getRepairById(existing.repairId, userId);
+        const existingRepair = await odooClient.getRepairById(existing.repairId, userInfo);
 
         return res.json({
           success: true,
@@ -258,13 +265,13 @@ router.post('/create', async (req, res, next) => {
         deliveryDate,
         estimatedBudget,
       },
-      userId,
+      userInfo,
       userName
     );
 
     // IDEMPOTENCY SAVE: Guardar key para futuras verificaciones
     if (idempotencyKey) {
-      idempotencyService.save(idempotencyKey, repair.id, repair.name, userId);
+      idempotencyService.save(idempotencyKey, repair.id, repair.name, userInfo.userId);
     }
 
     res.json({
@@ -290,12 +297,12 @@ router.post('/create', async (req, res, next) => {
  */
 router.get('/recent', async (req, res, next) => {
   try {
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const days = parseInt(req.query.days) || 7;
 
     logger.debug('Obteniendo órdenes recientes, días:', days);
 
-    const repairs = await odooClient.getRecentRepairs(userId, days);
+    const repairs = await odooClient.getRecentRepairs(userInfo, days);
 
     res.json({
       repairs: repairs.map(r => ({
@@ -323,7 +330,7 @@ router.get('/recent', async (req, res, next) => {
 router.post('/checkin', async (req, res, next) => {
   try {
     const { qrContent } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
     if (!qrContent) {
@@ -338,7 +345,7 @@ router.post('/checkin', async (req, res, next) => {
     }
 
     // Buscar reparación
-    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userId);
+    const repair = await odooClient.getRepairByCode(qrResult.repairCode, userInfo);
 
     if (!repair) {
       throw new AppError(`Reparacion ${qrResult.repairCode} no encontrada`, 404);
@@ -366,7 +373,7 @@ router.post('/checkin', async (req, res, next) => {
       await odooClient.execute('repair.order', 'message_post', [repair.id], {
         body: checkinMessage,
         message_type: 'notification',
-      }, userId);
+      }, userInfo);
     } catch (e) {
       logger.warn('No se pudo registrar check-in en chatter:', e.message);
     }
@@ -382,7 +389,7 @@ router.post('/checkin', async (req, res, next) => {
       technicianId: technician?.id || null,
       technicianName: technician?.name || null,
       registeredBy: userName,
-      registeredById: userId,
+      registeredById: userInfo.userId,
       timestamp: new Date().toISOString(),
       state: repair.state,
     };
@@ -444,7 +451,7 @@ router.get('/checkin/pending', async (req, res, next) => {
 router.post('/checkin/respond', async (req, res, next) => {
   try {
     const { checkinId, response } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
     if (!checkinId || !response) {
@@ -484,7 +491,7 @@ router.post('/checkin/respond', async (req, res, next) => {
       await odooClient.execute('repair.order', 'message_post', [notification.repairId], {
         body: responseMessage,
         message_type: 'notification',
-      }, userId);
+      }, userInfo);
     } catch (e) {
       logger.warn('No se pudo registrar respuesta en chatter:', e.message);
     }
@@ -494,7 +501,7 @@ router.post('/checkin/respond', async (req, res, next) => {
       type: response,
       message: responseMessages[response],
       respondedBy: userName,
-      respondedById: userId,
+      respondedById: userInfo.userId,
       respondedAt: new Date().toISOString(),
     };
 
@@ -516,7 +523,7 @@ router.post('/:id/note', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { note } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
     if (!note || !note.trim()) {
@@ -529,7 +536,7 @@ router.post('/:id/note', async (req, res, next) => {
     }
 
     // Verificar que la reparación existe
-    const repair = await odooClient.getRepairById(repairId, userId);
+    const repair = await odooClient.getRepairById(repairId, userInfo);
     if (!repair) {
       throw new AppError('Reparación no encontrada', 404);
     }
@@ -544,7 +551,7 @@ router.post('/:id/note', async (req, res, next) => {
     await odooClient.execute('repair.order', 'message_post', [repairId], {
       body: message,
       message_type: 'comment',
-    }, userId);
+    }, userInfo);
 
     logger.debug('Nota agregada a reparación:', repairId);
 
@@ -568,7 +575,7 @@ router.post('/:id/photo', async (req, res, next) => {
   try {
     const { id } = req.params;
     const { image, filename, description } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
     if (!image) {
@@ -581,7 +588,7 @@ router.post('/:id/photo', async (req, res, next) => {
     }
 
     // Verificar que la reparación existe
-    const repair = await odooClient.getRepairById(repairId, userId);
+    const repair = await odooClient.getRepairById(repairId, userInfo);
     if (!repair) {
       throw new AppError('Reparación no encontrada', 404);
     }
@@ -599,7 +606,7 @@ router.post('/:id/photo', async (req, res, next) => {
       datas: base64Data,
       res_model: 'repair.order',
       res_id: repairId,
-    }], {}, userId);
+    }], {}, userInfo);
 
     logger.debug('Attachment creado:', attachmentId);
 
@@ -614,7 +621,7 @@ ${description ? `<p>${description}</p>` : ''}
       body: message,
       message_type: 'comment',
       attachment_ids: [[4, attachmentId]],  // Comando Many2many para agregar
-    }, userId);
+    }, userInfo);
 
     res.json({
       success: true,
@@ -636,15 +643,15 @@ ${description ? `<p>${description}</p>` : ''}
 router.get('/:code', async (req, res, next) => {
   try {
     const { code } = req.params;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
 
-    const repair = await odooClient.getRepairByCode(code, userId);
+    const repair = await odooClient.getRepairByCode(code, userInfo);
 
     if (!repair) {
       throw new AppError(`Reparacion ${code} no encontrada`, 404);
     }
 
-    const states = await odooClient.getRepairStates(userId);
+    const states = await odooClient.getRepairStates(userInfo);
 
     res.json({
       repair: {
