@@ -60,8 +60,15 @@ router.post('/login', async (req, res, next) => {
       expiresIn: config.jwt.expiresIn,
     });
 
+    // Refresh token incluye todos los datos necesarios para re-generar access token
     const refreshToken = jwt.sign(
-      { userId: user.uid, type: 'refresh' },
+      {
+        userId: user.uid,
+        username: user.username,
+        name: user.name,
+        odooPassword: tokenPayload.odooPassword, // Ya encriptado
+        type: 'refresh',
+      },
       config.jwt.secret,
       { expiresIn: config.jwt.refreshExpiresIn }
     );
@@ -99,13 +106,14 @@ router.post('/refresh', async (req, res, next) => {
       throw new AppError('Token inválido', 401);
     }
 
-    // Generar nuevo access token
+    // Generar nuevo access token con todos los datos (incluyendo odooPassword para re-auth)
     const newAccessToken = jwt.sign(
       {
         userId: decoded.userId,
         username: decoded.username,
         name: decoded.name,
         roles: ['scanner'],
+        odooPassword: decoded.odooPassword, // Preservar para re-auth en Odoo
       },
       config.jwt.secret,
       { expiresIn: config.jwt.expiresIn }
