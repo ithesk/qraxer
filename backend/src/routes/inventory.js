@@ -17,13 +17,20 @@ router.get('/locations', async (req, res, next) => {
     const locations = await odooInventoryClient.getStockLocations();
 
     res.json({
-      locations: locations.map(loc => ({
-        id: loc.id,
-        name: loc.name,
-        fullName: loc.complete_name || loc.name,
-        warehouseId: loc.warehouse_id ? loc.warehouse_id[0] : null,
-        warehouseName: loc.warehouse_id ? loc.warehouse_id[1] : null,
-      })),
+      locations: locations.map(loc => {
+        // Remove "Physical Locations/" prefix from complete_name
+        let fullName = loc.complete_name || loc.name;
+        if (fullName.startsWith('Physical Locations/')) {
+          fullName = fullName.replace('Physical Locations/', '');
+        }
+        return {
+          id: loc.id,
+          name: loc.name,
+          fullName,
+          warehouseId: loc.warehouse_id ? loc.warehouse_id[0] : null,
+          warehouseName: loc.warehouse_id ? loc.warehouse_id[1] : null,
+        };
+      }),
     });
   } catch (error) {
     next(error);
