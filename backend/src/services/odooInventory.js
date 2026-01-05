@@ -142,18 +142,32 @@ class OdooInventoryClient {
 
   /**
    * Ejecutar método en modelo de Odoo
+   * @param {string} model - Modelo de Odoo
+   * @param {string} method - Método a ejecutar
+   * @param {Array} args - Argumentos posicionales
+   * @param {Object} kwargs - Argumentos con nombre
+   * @param {Object} context - Contexto adicional para la llamada
    */
-  async execute(model, method, args = [], kwargs = {}) {
+  async execute(model, method, args = [], kwargs = {}, context = {}) {
     log(`Execute: ${model}.${method}`);
 
     const session = await this.ensureAdminSession();
+
+    // Merge context into kwargs
+    const finalKwargs = {
+      ...kwargs,
+      context: {
+        ...kwargs.context,
+        ...context,
+      },
+    };
 
     try {
       const { result } = await this.jsonRpc('/web/dataset/call_kw', {
         model,
         method,
         args,
-        kwargs,
+        kwargs: finalKwargs,
       }, session.sessionId);
 
       return result;
@@ -166,7 +180,7 @@ class OdooInventoryClient {
           model,
           method,
           args,
-          kwargs,
+          kwargs: finalKwargs,
         }, newSession.sessionId);
         return result;
       }
@@ -226,10 +240,17 @@ class OdooInventoryClient {
 
   /**
    * Crear ajuste de inventario para un producto
-   * Usa el método inventory_quantity que permite establecer la cantidad contada
+   * Usa el contexto inventory_mode=True para bypass de restricciones de seguridad en stock.quant
    */
   async createInventoryAdjustment(productId, locationId, countedQty, userName) {
     log('Creando ajuste de inventario:', { productId, locationId, countedQty });
+
+    // Contexto especial para permitir modificación de stock.quant
+    // inventory_mode=True es requerido en Odoo 14+ para escribir en stock.quant
+    const inventoryContext = {
+      inventory_mode: true,
+      default_location_id: locationId,
+    };
 
     // Buscar si ya existe un stock.quant para este producto/ubicación
     const existingQuants = await this.execute('stock.quant', 'search_read', [
@@ -240,32 +261,30 @@ class OdooInventoryClient {
     ], {
       fields: ['id', 'quantity', 'inventory_quantity'],
       limit: 1,
-    });
+    }, inventoryContext);
 
     let quantId;
 
     if (existingQuants && existingQuants.length > 0) {
-      // Actualizar el quant existente
+      // Actualizar el quant existente usando contexto inventory_mode
       quantId = existingQuants[0].id;
-      log('Actualizando quant existente:', quantId);
+      log('Actualizando quant existente:', quantId, 'con contexto inventory_mode');
 
       await this.execute('stock.quant', 'write', [
         [quantId],
         {
           inventory_quantity: countedQty,
-          user_id: this.adminSession.uid,
         },
-      ]);
+      ], {}, inventoryContext);
     } else {
-      // Crear nuevo quant
-      log('Creando nuevo quant');
+      // Crear nuevo quant con contexto inventory_mode
+      log('Creando nuevo quant con contexto inventory_mode');
 
       quantId = await this.execute('stock.quant', 'create', [{
         product_id: productId,
         location_id: locationId,
         inventory_quantity: countedQty,
-        user_id: this.adminSession.uid,
-      }]);
+      }], {}, inventoryContext);
     }
 
     log('Quant ID:', quantId);
@@ -284,9 +303,14 @@ class OdooInventoryClient {
       return { applied: 0 };
     }
 
+    // Contexto especial para aplicar inventario
+    const inventoryContext = {
+      inventory_mode: true,
+    };
+
     try {
-      // Llamar action_apply_inventory en cada quant
-      await this.execute('stock.quant', 'action_apply_inventory', [quantIds]);
+      // Llamar action_apply_inventory en los quants
+      await this.execute('stock.quant', 'action_apply_inventory', [quantIds], {}, inventoryContext);
 
       log('Ajustes aplicados correctamente');
       return { applied: quantIds.length };
