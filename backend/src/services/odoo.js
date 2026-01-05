@@ -476,7 +476,6 @@ class OdooClient {
       imei: data.equipment?.serial || 'N/A',
       description: description,
       branch_id: data.branchId,
-      lead_source: data.leadSource || 'walk_in',
       schedule_date_str: data.deliveryDate || this.getDefaultDeliveryDate(),
       estimated_budget: data.estimatedBudget || 0,
 
@@ -522,6 +521,12 @@ class OdooClient {
     // Odoo usará su valor por defecto si no se envía
     if (data.equipment?.typerepair) {
       repairData.typerepair = data.equipment.typerepair;
+    }
+
+    // Lead source - solo enviar si viene explícitamente
+    // Odoo usará su valor por defecto si no se envía
+    if (data.leadSource) {
+      repairData.lead_source = data.leadSource;
     }
 
     // Nota adicional en descripción si existe
