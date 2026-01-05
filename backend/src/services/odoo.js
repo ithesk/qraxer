@@ -400,9 +400,12 @@ class OdooClient {
 
   /**
    * Crear nueva orden de reparación
+   * Campos obligatorios según XML de Odoo:
+   * - partner_id, imei, lead_source, description, branch_id, schedule_date_str, estimated_budget
    */
   async createRepairOrder(data, userId, userName) {
     log('Creando orden de reparación');
+    log('Data recibida:', JSON.stringify(data, null, 2));
 
     // Construir descripción del problema
     const problemLabels = {
@@ -418,19 +421,8 @@ class OdooClient {
       .map(p => problemLabels[p] || p)
       .join(', ');
 
-    // Incluir estado del equipo en descripción
-    const statusText = data.equipment?.status === 'on' ? 'Encendido' :
-                       data.equipment?.status === 'off' ? 'Apagado' : 'No especificado';
-
-    const description = [
-      `Marca: ${data.equipment?.brand || 'N/A'}`,
-      `Modelo: ${data.equipment?.model || 'N/A'}`,
-      data.equipment?.serial ? `IMEI/Serial: ${data.equipment.serial}` : null,
-      `Estado: ${statusText}`,
-      data.equipment?.hasPassword ? `Contraseña: ${data.equipment.password || 'Sí (no proporcionada)'}` : null,
-      `Problema: ${problemText || 'No especificado'}`,
-      data.note ? `Nota: ${data.note}` : null,
-    ].filter(Boolean).join('\n');
+    // La descripción ahora es solo el problema (el equipo va en product_id)
+    const description = problemText || 'Diagnóstico general';
 
     // Buscar o crear producto (modelo del equipo) para product_id
     let productId = null;
@@ -446,38 +438,73 @@ class OdooClient {
         }
       } catch (e) {
         log('Warning: No se pudo obtener/crear producto:', e.message);
-        // Continuar sin product_id
       }
     }
 
+    // Si no hay product_id, es un error (campo obligatorio)
+    if (!productId) {
+      throw new Error('Se requiere un modelo de equipo válido');
+    }
+
+    // Construir datos de la orden con campos de Odoo
     const repairData = {
+      // Campos obligatorios
       partner_id: data.clientId,
+      product_id: productId,
+      imei: data.equipment?.serial || 'N/A',
       description: description,
+      branch_id: data.branchId,
+      lead_source: data.leadSource || 'walk_in',
+      schedule_date_str: data.deliveryDate || this.getDefaultDeliveryDate(),
+      estimated_budget: data.estimatedBudget || 0,
+
+      // Campos del sistema
       state: 'draft',
       user_id: userId,
+
+      // Campo de estado del equipo (encendido/apagado)
+      powerstate: data.equipment?.status === 'on',
+
+      // Contraseña del equipo
+      passcode: data.equipment?.password || false,
     };
 
-    // Agregar product_id solo si existe
-    if (productId) {
-      repairData.product_id = productId;
+    // Agregar campos de funcionalidad solo si powerstate es true
+    if (data.equipment?.status === 'on' && data.equipment?.functionalityChecks) {
+      const checks = data.equipment.functionalityChecks;
+      // Mapear checks del frontend a campos de Odoo
+      if (checks.battery !== undefined) repairData.battery = checks.battery;
+      if (checks.wifi !== undefined) repairData.wifi = checks.wifi;
+      if (checks.signal !== undefined) repairData.signal = checks.signal;
+      if (checks.screen !== undefined) repairData.screen = checks.screen;
+      if (checks.touch !== undefined) repairData.touch = checks.touch;
+      if (checks.camera !== undefined) repairData.camera = checks.camera;
+      if (checks.microphone !== undefined) repairData.microphone = checks.microphone;
+      if (checks.speaker !== undefined) repairData.speaker = checks.speaker;
+      if (checks.charging !== undefined) repairData.charging = checks.charging;
+      if (checks.buttons !== undefined) repairData.buttons = checks.buttons;
+      if (checks.faceid !== undefined) repairData.faceid = checks.faceid;
+      if (checks.truetone !== undefined) repairData.truetone = checks.truetone;
+      if (checks.flash !== undefined) repairData.flash = checks.flash;
+      if (checks.camerafront !== undefined) repairData.camerafront = checks.camerafront;
+      if (checks.earphone !== undefined) repairData.earphone = checks.earphone;
     }
 
-    // Agregar campos personalizados si existen en Odoo
-    // power_state: 'on' | 'off'
-    // device_password: string
-    // device_locked: boolean
-    if (data.equipment?.status) {
-      repairData.x_power_state = data.equipment.status; // Campo personalizado
+    // Campos adicionales opcionales
+    if (data.equipment?.cover !== undefined) repairData.cover = data.equipment.cover;
+    if (data.equipment?.accessories !== undefined) repairData.accessories = data.equipment.accessories;
+    if (data.equipment?.screw !== undefined) repairData.screw = data.equipment.screw;
+    if (data.equipment?.sim !== undefined) repairData.sim = data.equipment.sim;
+
+    // Tipo de reparación (smartphone por defecto)
+    repairData.typerepair = data.equipment?.type || 'smartphone';
+
+    // Nota adicional en descripción si existe
+    if (data.note) {
+      repairData.description = `${description}\n\nNota: ${data.note}`;
     }
-    if (data.equipment?.hasPassword !== undefined) {
-      repairData.x_device_locked = data.equipment.hasPassword;
-    }
-    if (data.equipment?.password) {
-      repairData.x_device_password = data.equipment.password;
-    }
-    if (data.equipment?.serial) {
-      repairData.x_serial_number = data.equipment.serial;
-    }
+
+    log('repairData a enviar:', JSON.stringify(repairData, null, 2));
 
     // Crear la orden
     const repairId = await this.execute('repair.order', 'create', [repairData], {}, userId);
@@ -488,7 +515,7 @@ class OdooClient {
     const repairs = await this.execute('repair.order', 'search_read', [
       [['id', '=', repairId]],
     ], {
-      fields: ['id', 'name', 'state', 'partner_id', 'description'],
+      fields: ['id', 'name', 'state', 'partner_id', 'description', 'branch_id'],
       limit: 1,
     }, userId);
 
@@ -500,6 +527,8 @@ class OdooClient {
 <p><strong>Orden creada via QRaxer Quick Creator</strong></p>
 <ul>
   <li><strong>Usuario:</strong> ${userName} (ID: ${userId})</li>
+  <li><strong>Equipo:</strong> ${data.equipment?.brand} ${data.equipment?.model}</li>
+  <li><strong>IMEI:</strong> ${data.equipment?.serial || 'N/A'}</li>
   <li><strong>Fecha:</strong> ${new Date().toISOString()}</li>
 </ul>
       `.trim();
@@ -517,8 +546,18 @@ class OdooClient {
       name: repair.name,
       state: repair.state,
       partner: repair.partner_id ? repair.partner_id[1] : null,
+      branch: repair.branch_id ? repair.branch_id[1] : null,
       description: repair.description,
     };
+  }
+
+  /**
+   * Helper: Obtener fecha de entrega por defecto (hoy + 3 días)
+   */
+  getDefaultDeliveryDate() {
+    const date = new Date();
+    date.setDate(date.getDate() + 3);
+    return date.toISOString().split('T')[0];
   }
 
   /**
@@ -569,6 +608,89 @@ class OdooClient {
     }
 
     return repairs;
+  }
+
+  /**
+   * Obtener sucursales (branches) disponibles
+   */
+  async getBranches(userId) {
+    log('Obteniendo sucursales...');
+
+    try {
+      const branches = await this.execute('res.branch', 'search_read', [
+        [],
+      ], {
+        fields: ['id', 'name'],
+        order: 'name asc',
+      }, userId);
+
+      log('Sucursales encontradas:', branches.length);
+      return branches;
+    } catch (e) {
+      log('Error obteniendo sucursales:', e.message);
+      return [];
+    }
+  }
+
+  /**
+   * Obtener fuentes de lead (lead_source) - campo selection de repair.order
+   */
+  async getLeadSources(userId) {
+    log('Obteniendo fuentes de lead...');
+
+    try {
+      const fields = await this.execute('repair.order', 'fields_get', [], {
+        attributes: ['selection'],
+        allfields: ['lead_source'],
+      }, userId);
+
+      if (fields.lead_source && fields.lead_source.selection) {
+        const sources = fields.lead_source.selection.map(([value, label]) => ({
+          value,
+          label,
+        }));
+        log('Fuentes de lead obtenidas:', sources);
+        return sources;
+      }
+    } catch (e) {
+      log('Error obteniendo fuentes de lead:', e.message);
+    }
+
+    // Valores por defecto
+    return [
+      { value: 'walk_in', label: 'Cliente directo' },
+      { value: 'referral', label: 'Referido' },
+      { value: 'social', label: 'Redes sociales' },
+      { value: 'website', label: 'Sitio web' },
+    ];
+  }
+
+  /**
+   * Obtener configuración para el formulario de reparación
+   * Incluye branches, lead_sources y valores por defecto
+   */
+  async getRepairConfig(userId) {
+    log('Obteniendo configuración de reparación...');
+
+    const [branches, leadSources] = await Promise.all([
+      this.getBranches(userId),
+      this.getLeadSources(userId),
+    ]);
+
+    // Calcular fecha de entrega por defecto (hoy + 3 días)
+    const defaultDeliveryDate = new Date();
+    defaultDeliveryDate.setDate(defaultDeliveryDate.getDate() + 3);
+    const defaultDeliveryStr = defaultDeliveryDate.toISOString().split('T')[0];
+
+    return {
+      branches,
+      leadSources,
+      defaults: {
+        leadSource: leadSources.length > 0 ? leadSources[0].value : 'walk_in',
+        deliveryDate: defaultDeliveryStr,
+        estimatedBudget: 0,
+      },
+    };
   }
 
   /**

@@ -210,6 +210,24 @@ class ApiService {
   }
 
   /**
+   * Get repair form configuration (branches, leadSources, defaults)
+   * Call this once at login and cache the result
+   */
+  async getRepairConfig() {
+    const response = await this.request('/repair/config', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener configuracion');
+    }
+
+    return data;
+  }
+
+  /**
    * Get recent repairs for history
    */
   async getRecentRepairs(days = 7) {
