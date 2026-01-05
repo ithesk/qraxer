@@ -45,12 +45,27 @@ const TOAST_STYLES = {
     color: '#c2410c',
     border: '1px solid #fed7aa',
   },
+  info: {
+    background: '#eff6ff',
+    color: '#1d4ed8',
+    border: '1px solid #bfdbfe',
+  },
 };
+
+// Info icon
+const InfoIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="16" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
+  </svg>
+);
 
 const ICONS = {
   success: CheckIcon,
   error: ErrorIcon,
   warning: WarningIcon,
+  info: InfoIcon,
 };
 
 // Global toast state
@@ -75,6 +90,9 @@ export const toast = {
   },
   warning(message, duration) {
     return this.show(message, 'warning', duration);
+  },
+  info(message, duration) {
+    return this.show(message, 'info', duration);
   },
   dismiss(id) {
     toastQueue = toastQueue.filter(t => t.id !== id);
