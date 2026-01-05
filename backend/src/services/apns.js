@@ -3,12 +3,15 @@
  *
  * Este servicio es OPCIONAL - si no hay configuración de APNs,
  * el sistema sigue funcionando con polling.
+ *
+ * Los tokens se persisten en SQLite y se cargan en memoria al iniciar.
  */
 
 import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { database } from './database.js';
 
-// Almacén de tokens de dispositivos en memoria
+// Almacén de tokens de dispositivos en memoria (cache de la DB)
 // Estructura: Map<userId, Set<{token, platform, createdAt}>>
 const deviceTokens = new Map();
 
@@ -16,9 +19,33 @@ const deviceTokens = new Map();
 let apnProvider = null;
 
 /**
+ * Carga los tokens desde la base de datos a memoria
+ */
+function loadTokensFromDatabase() {
+  const tokens = database.getAllDeviceTokens();
+
+  for (const row of tokens) {
+    if (!deviceTokens.has(row.user_id)) {
+      deviceTokens.set(row.user_id, new Set());
+    }
+
+    deviceTokens.get(row.user_id).add({
+      token: row.token,
+      platform: row.platform,
+      createdAt: row.created_at,
+    });
+  }
+
+  logger.info(`[APNS] Cargados ${tokens.length} tokens de la base de datos`);
+}
+
+/**
  * Inicializa el cliente APNs si hay configuración disponible
  */
 async function initializeApns() {
+  // Cargar tokens persistidos
+  loadTokensFromDatabase();
+
   if (!config.apns?.enabled) {
     logger.info('[APNS] Push notifications deshabilitadas (sin configuración)');
     return false;
@@ -50,8 +77,13 @@ async function initializeApns() {
 
 /**
  * Registra un token de dispositivo para un usuario
+ * Guarda en DB y en cache de memoria
  */
 function registerDeviceToken(userId, token, platform = 'ios') {
+  // Guardar en base de datos
+  database.upsertDeviceToken(userId, token, platform);
+
+  // Actualizar cache en memoria
   if (!deviceTokens.has(userId)) {
     deviceTokens.set(userId, new Set());
   }
@@ -78,8 +110,13 @@ function registerDeviceToken(userId, token, platform = 'ios') {
 
 /**
  * Elimina un token de dispositivo
+ * Elimina de DB y de cache de memoria
  */
 function unregisterDeviceToken(userId, token) {
+  // Eliminar de base de datos
+  database.deleteDeviceToken(token);
+
+  // Eliminar de cache en memoria
   if (!deviceTokens.has(userId)) {
     return false;
   }
@@ -97,7 +134,7 @@ function unregisterDeviceToken(userId, token) {
 }
 
 /**
- * Obtiene todos los tokens de un usuario
+ * Obtiene todos los tokens de un usuario (desde cache en memoria)
  */
 function getDeviceTokens(userId) {
   if (!deviceTokens.has(userId)) {
@@ -208,17 +245,24 @@ function isEnabled() {
  * Estadísticas de dispositivos registrados
  */
 function getStats() {
-  let totalDevices = 0;
-  let totalUsers = deviceTokens.size;
+  // Obtener stats desde la base de datos para mayor precisión
+  const dbStats = database.getStats();
+
+  // También incluir stats de memoria para comparación
+  let memoryDevices = 0;
+  let memoryUsers = deviceTokens.size;
 
   for (const devices of deviceTokens.values()) {
-    totalDevices += devices.size;
+    memoryDevices += devices.size;
   }
 
   return {
     enabled: isEnabled(),
-    totalUsers,
-    totalDevices,
+    database: dbStats,
+    memory: {
+      totalUsers: memoryUsers,
+      totalDevices: memoryDevices,
+    },
   };
 }
 

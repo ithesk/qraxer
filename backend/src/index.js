@@ -10,6 +10,7 @@ import productsRoutes from './routes/products.js';
 import inventoryRoutes from './routes/inventory.js';
 import devicesRoutes from './routes/devices.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { database } from './services/database.js';
 import { apnsService } from './services/apns.js';
 
 const app = express();
@@ -52,11 +53,27 @@ app.use('/api/devices', devicesRoutes);
 // Error handling
 app.use(errorHandler);
 
+// Initialize database first, then APNs
+database.initialize();
+
 // Initialize APNs (optional - continues without if not configured)
 apnsService.initialize().then(enabled => {
   if (enabled) {
     console.log('APNs push notifications enabled');
   }
+});
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down...');
+  database.close();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('Shutting down...');
+  database.close();
+  process.exit(0);
 });
 
 // Start server - bind to 0.0.0.0 for network access
