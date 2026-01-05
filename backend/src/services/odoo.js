@@ -173,11 +173,33 @@ class OdooClient {
 
   /**
    * Ejecutar método en modelo de Odoo usando sesión del usuario
+   * Si la sesión no existe pero tenemos userInfo con password, re-autenticar
+   * @param {string} model - Modelo de Odoo
+   * @param {string} method - Método a ejecutar
+   * @param {Array} args - Argumentos posicionales
+   * @param {Object} kwargs - Argumentos con nombre
+   * @param {number|Object} userIdOrInfo - userId o objeto {userId, username, password}
    */
-  async execute(model, method, args = [], kwargs = {}, userId) {
+  async execute(model, method, args = [], kwargs = {}, userIdOrInfo) {
+    // Determinar userId y userInfo
+    const userId = typeof userIdOrInfo === 'object' ? userIdOrInfo.userId : userIdOrInfo;
+    const userInfo = typeof userIdOrInfo === 'object' ? userIdOrInfo : null;
+
     log(`Execute: ${model}.${method} (user: ${userId})`);
 
-    const session = userSessions.get(userId);
+    let session = userSessions.get(userId);
+
+    // Si no hay sesión pero tenemos credenciales, re-autenticar
+    if ((!session || !session.sessionId) && userInfo?.username && userInfo?.password) {
+      log('Sesión no encontrada, re-autenticando...');
+      try {
+        await this.authenticate(userInfo.username, userInfo.password);
+        session = userSessions.get(userId);
+      } catch (authError) {
+        logError('Error re-autenticando:', authError.message);
+      }
+    }
+
     if (!session || !session.sessionId) {
       throw new AppError('Sesión de usuario no encontrada. Inicie sesión nuevamente.', 401);
     }
@@ -613,8 +635,9 @@ class OdooClient {
   /**
    * Obtener sucursales (branches) disponibles
    * Nota: branch_id en repair.order es Many2one a repair.location
+   * @param {number|Object} userIdOrInfo - userId o objeto con credenciales para re-auth
    */
-  async getBranches(userId) {
+  async getBranches(userIdOrInfo) {
     log('Obteniendo sucursales (repair.location)...');
 
     try {
@@ -623,7 +646,7 @@ class OdooClient {
       ], {
         fields: ['id', 'name'],
         order: 'name asc',
-      }, userId);
+      }, userIdOrInfo);
 
       log('Sucursales encontradas:', branches.length);
       return branches;
@@ -635,15 +658,16 @@ class OdooClient {
 
   /**
    * Obtener fuentes de lead (lead_source) - campo selection de repair.order
+   * @param {number|Object} userIdOrInfo - userId o objeto con credenciales para re-auth
    */
-  async getLeadSources(userId) {
+  async getLeadSources(userIdOrInfo) {
     log('Obteniendo fuentes de lead...');
 
     try {
       const fields = await this.execute('repair.order', 'fields_get', [], {
         attributes: ['selection'],
         allfields: ['lead_source'],
-      }, userId);
+      }, userIdOrInfo);
 
       if (fields.lead_source && fields.lead_source.selection) {
         const sources = fields.lead_source.selection.map(([value, label]) => ({
@@ -669,13 +693,14 @@ class OdooClient {
   /**
    * Obtener configuración para el formulario de reparación
    * Incluye branches, lead_sources y valores por defecto
+   * @param {number|Object} userIdOrInfo - userId o objeto con credenciales para re-auth
    */
-  async getRepairConfig(userId) {
+  async getRepairConfig(userIdOrInfo) {
     log('Obteniendo configuración de reparación...');
 
     const [branches, leadSources] = await Promise.all([
-      this.getBranches(userId),
-      this.getLeadSources(userId),
+      this.getBranches(userIdOrInfo),
+      this.getLeadSources(userIdOrInfo),
     ]);
 
     // Calcular fecha de entrega por defecto (hoy + 3 días)

@@ -138,8 +138,13 @@ router.get('/states', async (req, res, next) => {
  */
 router.get('/config', async (req, res, next) => {
   try {
-    const userId = req.user.userId;
-    const config = await odooClient.getRepairConfig(userId);
+    // Pasar userInfo completo para permitir re-autenticación si la sesión expiró
+    const userInfo = {
+      userId: req.user.userId,
+      username: req.user.username,
+      password: req.user.odooPassword,
+    };
+    const config = await odooClient.getRepairConfig(userInfo);
     res.json(config);
   } catch (error) {
     next(error);
