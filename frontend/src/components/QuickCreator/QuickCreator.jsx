@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { api } from '../../services/api';
-import { orderQueue, generateIdempotencyKey } from '../../services/orderQueue';
-import { queueProcessor } from '../../services/queueProcessor';
 import { toast } from '../Toast';
 import haptics from '../../services/haptics';
 import ClientSection from './ClientSection';
 import EquipmentSection from './EquipmentSection';
 import ProblemSection from './ProblemSection';
 import OrderConfirmation from './OrderConfirmation';
-import { getUserPreferences } from '../SettingsScreen';
+
+// Generate temporary ID
+const generateTempId = () => `TMP-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+
 // Helper: Format date for display
 const formatDateForDisplay = (dateStr) => {
   if (!dateStr) return '';
@@ -74,11 +75,8 @@ export default function QuickCreator() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        // Get user preferences (saved branch)
-        const userPrefs = getUserPreferences();
-
         // DEBUG: Clear cache to force fresh fetch
-        console.log('[QuickCreator] Clearing repairConfig cache for debug...');
+        console.log('[QuickCreator] DEBUG: Clearing cache...');
         localStorage.removeItem('repairConfig');
 
         // Fetch from API
@@ -93,12 +91,8 @@ export default function QuickCreator() {
 
         setConfig(data);
 
-        // Set defaults - use saved branch preference, or first branch as fallback
-        if (userPrefs.defaultBranchId) {
-          // Verify the saved branch still exists
-          const branchExists = data.branches?.some(b => b.id === userPrefs.defaultBranchId);
-          setBranchId(branchExists ? userPrefs.defaultBranchId : data.branches?.[0]?.id || null);
-        } else if (data.branches?.length > 0) {
+        // Set defaults
+        if (data.branches?.length > 0) {
           setBranchId(data.branches[0].id);
         }
         if (data.defaults) {
@@ -139,160 +133,83 @@ export default function QuickCreator() {
     }
   };
 
-  // Handle order creation with offline-first queue
+  // Handle order creation with optimistic UI
   const handleCreateOrder = async () => {
     if (!canSubmit || isSubmitting) return;
 
     setIsSubmitting(true);
     haptics.impact(); // Feedback on submit
+    const tempId = generateTempId();
 
     // Find branch name for display
     const branchName = config?.branches?.find(b => b.id === branchId)?.name || '';
 
-    // Prepare order data for queue
-    const orderData = {
-      client: {
-        id: client.id,
-        name: client.name,
-        phone: client.phone,
-        email: client.email,
-        isNew: client.isNew || false,
-      },
+    // Optimistic: show confirmation immediately with temp ID
+    setOrderResult({
+      tempId,
+      realId: null,
+      realName: null,
+      status: 'pending',
+      client,
       equipment,
       problems,
-      note,
-      branchId,
       branchName,
-      leadSource,
-      deliveryDate,
-    };
-
-    // Generate idempotency key to prevent duplicates
-    const idempotencyKey = generateIdempotencyKey(orderData);
-
-    // Check if online
-    const isOnline = await api.isOnline();
-    console.log('[QuickCreator] Online status:', isOnline);
-
-    if (isOnline) {
-      // TRY IMMEDIATE SYNC
-      try {
-        // If client is new, create first
-        let clientId = client.id;
-        if (client.isNew) {
-          console.log('[QuickCreator] Creating new client...');
-          const createResult = await api.createClient(client.name, client.phone, client.email);
-          clientId = createResult.client.id;
-          console.log('[QuickCreator] Client created:', clientId);
-        }
-
-        // Create repair order with idempotency key
-        console.log('[QuickCreator] Creating repair order...');
-        const repairData = {
-          clientId,
-          equipment,
-          problems,
-          note,
-          branchId,
-          leadSource,
-          deliveryDate,
-        };
-
-        const result = await api.createRepairOrder(repairData, idempotencyKey);
-        console.log('[QuickCreator] Order created:', result);
-
-        // Success! Show confirmation with real data
-        setOrderResult({
-          localId: null,
-          tempDisplayId: null,
-          realId: result.repair.id,
-          realName: result.repair.name,
-          status: 'confirmed',
-          duplicate: result.duplicate || false,
-          client,
-          equipment,
-          problems,
-          branchName: result.repair.branch || branchName,
-        });
-        setView('confirmation');
-        haptics.success();
-
-      } catch (error) {
-        console.error('[QuickCreator] Sync failed, queuing order:', error);
-
-        // SYNC FAILED - Queue for later
-        const queuedOrder = await orderQueue.addOrder(orderData);
-
-        setOrderResult({
-          localId: queuedOrder.localId,
-          tempDisplayId: queuedOrder.tempDisplayId,
-          realId: null,
-          realName: null,
-          status: 'pending', // queued
-          client,
-          equipment,
-          problems,
-          branchName,
-          error: error.message,
-        });
-        setView('confirmation');
-
-        toast.warning('Sin conexión. Orden guardada localmente.');
-        haptics.warning();
-      }
-    } else {
-      // OFFLINE - Queue immediately
-      console.log('[QuickCreator] Offline, queuing order...');
-
-      const queuedOrder = await orderQueue.addOrder(orderData);
-
-      setOrderResult({
-        localId: queuedOrder.localId,
-        tempDisplayId: queuedOrder.tempDisplayId,
-        realId: null,
-        realName: null,
-        status: 'pending', // queued
-        client,
-        equipment,
-        problems,
-        branchName,
-      });
-      setView('confirmation');
-
-      toast.info('Orden guardada. Se sincronizará al recuperar conexión.');
-      haptics.impact();
-    }
-
-    setIsSubmitting(false);
-  };
-
-  // Retry syncing a queued order
-  const handleRetrySync = async (localId) => {
-    if (!localId) return;
+    });
+    setView('confirmation');
 
     try {
-      const result = await queueProcessor.syncOrder({ localId });
+      // If client is new (not yet in Odoo), create it first
+      let clientId = client.id;
 
-      if (result.success) {
-        // Update orderResult with synced data
-        setOrderResult(prev => ({
-          ...prev,
-          realId: result.repair.id,
-          realName: result.repair.name,
-          status: 'confirmed',
-          duplicate: result.duplicate || false,
-        }));
-        haptics.success();
-        toast.success('Orden sincronizada correctamente');
-      } else if (result.skipped) {
-        toast.info('La orden ya está siendo sincronizada');
-      } else {
-        throw new Error(result.error || 'Error al sincronizar');
+      if (client.isNew) {
+        console.log('[QuickCreator] Creating new client...');
+        const createResult = await api.createClient(client.name, client.phone);
+        clientId = createResult.client.id;
+        console.log('[QuickCreator] Client created:', clientId);
       }
+
+      // Create the repair order with all required fields
+      console.log('[QuickCreator] Creating repair order...');
+      const orderData = {
+        clientId,
+        equipment,
+        problems,
+        note,
+        branchId,
+        leadSource,
+        deliveryDate,
+      };
+
+      const result = await api.createRepairOrder(orderData);
+      console.log('[QuickCreator] Order created:', result);
+
+      // Update with real ID
+      setOrderResult(prev => ({
+        ...prev,
+        realId: result.repair.id,
+        realName: result.repair.name,
+        status: 'confirmed',
+        branchName: result.repair.branch || branchName,
+      }));
+
+      // Haptic feedback for success
+      haptics.success();
+
     } catch (error) {
-      console.error('[QuickCreator] Retry failed:', error);
-      toast.error('Error al sincronizar: ' + error.message);
+      console.error('[QuickCreator] Error creating order:', error);
+
+      setOrderResult(prev => ({
+        ...prev,
+        status: 'failed',
+        error: error.message,
+      }));
+
+      toast.error('No se pudo crear la orden. Intenta de nuevo.');
+
+      // Haptic feedback for error
       haptics.error();
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -302,7 +219,7 @@ export default function QuickCreator() {
       <OrderConfirmation
         orderResult={orderResult}
         onCreateAnother={resetForm}
-        onRetry={() => handleRetrySync(orderResult.localId)}
+        onRetry={handleCreateOrder}
       />
     );
   }
@@ -310,132 +227,44 @@ export default function QuickCreator() {
   // Show form
   return (
     <div className="fade-in">
-      {/* Header con sucursal integrada */}
+      {/* Header con icono */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: '12px',
         marginBottom: '20px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            flexShrink: 0,
-          }}>
-            <ClipboardIcon />
-          </div>
-          <div>
-            <h2 style={{
-              fontSize: '20px',
-              fontWeight: '700',
-              color: 'var(--text)',
-              margin: 0,
-            }}>
-              Nueva Orden
-            </h2>
-            <p style={{
-              fontSize: '13px',
-              color: 'var(--text-muted)',
-              margin: 0,
-            }}>
-              Completa los 3 pasos
-            </p>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Sucursal Banner - Siempre visible arriba */}
-      {!configLoading && config?.branches?.length > 0 && (
         <div style={{
+          width: '44px',
+          height: '44px',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(29, 78, 216, 0.1) 100%)',
-          borderRadius: '12px',
-          marginBottom: '16px',
-          border: '1px solid rgba(37, 99, 235, 0.2)',
+          justifyContent: 'center',
+          color: 'white',
+          flexShrink: 0,
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-            }}>
-              <BranchIcon />
-            </div>
-            <div>
-              <div style={{
-                fontSize: '11px',
-                fontWeight: '500',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}>
-                Sucursal
-              </div>
-              <div style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                color: 'var(--text)',
-              }}>
-                {config.branches.find(b => b.id === branchId)?.name || 'Seleccionar'}
-              </div>
-            </div>
-          </div>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={branchId || ''}
-              onChange={(e) => setBranchId(Number(e.target.value))}
-              style={{
-                padding: '8px 32px 8px 12px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#2563eb',
-                background: 'white',
-                border: '1px solid rgba(37, 99, 235, 0.3)',
-                borderRadius: '8px',
-                appearance: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {config.branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-            <div style={{
-              position: 'absolute',
-              right: '10px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: '#2563eb',
-            }}>
-              <ChevronDownIcon />
-            </div>
-          </div>
+          <ClipboardIcon />
         </div>
-      )}
+        <div>
+          <h2 style={{
+            fontSize: '20px',
+            fontWeight: '700',
+            color: 'var(--text)',
+            margin: 0,
+          }}>
+            Nueva Orden
+          </h2>
+          <p style={{
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+            margin: 0,
+          }}>
+            Completa los 3 pasos
+          </p>
+        </div>
+      </div>
 
       {/* Sección 1: Cliente */}
       <div className="card" style={{ padding: '20px', marginBottom: '12px' }}>
@@ -484,7 +313,7 @@ export default function QuickCreator() {
         />
       </div>
 
-      {/* Sección 4: Fecha de Entrega */}
+      {/* Sección 4: Sucursal y Fecha */}
       {!configLoading && config && (
         <div className="card" style={{
           padding: '16px 20px',
@@ -493,44 +322,109 @@ export default function QuickCreator() {
         }}>
           <div style={{
             display: 'flex',
-            alignItems: 'center',
             gap: '12px',
+            flexWrap: 'wrap',
           }}>
-            <CalendarIcon />
-            <label style={{
-              fontSize: '14px',
-              fontWeight: '600',
-              color: 'var(--text)',
-            }}>
-              Fecha de entrega
-            </label>
-            <div style={{ flex: 1 }} />
-            <input
-              type="date"
-              value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              disabled={!client || !equipment.model || problems.length === 0}
-              style={{
-                padding: '8px 12px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: 'var(--text)',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: '10px',
-              }}
-            />
-          </div>
-          {deliveryDate && (
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              marginTop: '8px',
-              textAlign: 'right',
-            }}>
-              {formatDateForDisplay(deliveryDate)}
+            {/* Branch Selector */}
+            {config.branches?.length > 0 && (
+              <div style={{ flex: '1', minWidth: '140px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: 'var(--text-muted)',
+                  marginBottom: '6px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>
+                  <BranchIcon />
+                  Sucursal
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={branchId || ''}
+                    onChange={(e) => setBranchId(Number(e.target.value))}
+                    disabled={!client || !equipment.model || problems.length === 0}
+                    style={{
+                      width: '100%',
+                      padding: '10px 32px 10px 12px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: 'var(--text)',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      appearance: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {config.branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: 'var(--text-muted)',
+                  }}>
+                    <ChevronDownIcon />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delivery Date */}
+            <div style={{ flex: '1', minWidth: '140px' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--text-muted)',
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                <CalendarIcon />
+                Entrega
+              </label>
+              <input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                disabled={!client || !equipment.model || problems.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: 'var(--text)',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {deliveryDate && (
+                <div style={{
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  marginTop: '4px',
+                  paddingLeft: '2px',
+                }}>
+                  {formatDateForDisplay(deliveryDate)}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
