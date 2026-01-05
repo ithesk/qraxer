@@ -523,18 +523,17 @@ class OdooClient {
       repairData.typerepair = data.equipment.typerepair;
     }
 
-    // Lead source - campo requerido en Odoo (NOT NULL)
-    // Ignorar 'walk_in' porque no es válido en este Odoo
-    // Usar 'direct' como fallback
+    // Lead source - solo enviar si viene un valor válido (no vacío, no walk_in)
+    // Si no hay valor válido, NO enviar y dejar que Odoo use su default
     const incomingLeadSource = data.leadSource;
     log('[DEBUG] leadSource recibido:', incomingLeadSource);
 
-    if (incomingLeadSource && incomingLeadSource !== 'walk_in') {
+    if (incomingLeadSource && incomingLeadSource !== 'walk_in' && incomingLeadSource !== '') {
       repairData.lead_source = incomingLeadSource;
+      log('[DEBUG] lead_source a enviar:', repairData.lead_source);
     } else {
-      repairData.lead_source = 'direct';
+      log('[DEBUG] NO se enviará lead_source, Odoo usará default');
     }
-    log('[DEBUG] lead_source a enviar:', repairData.lead_source);
 
     // Nota adicional en descripción si existe
     if (data.note) {
@@ -684,22 +683,26 @@ class OdooClient {
         allfields: ['lead_source'],
       }, userIdOrInfo);
 
+      log('[DEBUG] fields_get response:', JSON.stringify(fields, null, 2));
+
       if (fields.lead_source && fields.lead_source.selection) {
         const sources = fields.lead_source.selection.map(([value, label]) => ({
           value,
           label,
         }));
-        log('Fuentes de lead obtenidas:', sources);
+        log('[DEBUG] Fuentes de lead obtenidas de Odoo:', JSON.stringify(sources));
         return sources;
+      } else {
+        log('[DEBUG] No se encontró lead_source.selection en la respuesta');
       }
     } catch (e) {
       logError('Error obteniendo fuentes de lead:', e.message);
     }
 
-    // Valores por defecto - usar 'direct' como primer valor
-    // Si Odoo no acepta estos valores, dará error con los valores válidos
+    // Fallback vacío - mejor no enviar nada que un valor inválido
+    log('[DEBUG] Retornando array vacío como fallback');
     return [
-      { value: 'direct', label: 'Cliente directo' },
+      { value: '', label: 'Sin especificar' },
       { value: 'referral', label: 'Referido' },
       { value: 'social', label: 'Redes sociales' },
       { value: 'website', label: 'Sitio web' },
