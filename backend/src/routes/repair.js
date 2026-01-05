@@ -316,6 +316,36 @@ router.get('/recent', async (req, res, next) => {
 });
 
 /**
+ * GET /api/repair/debug/lead-sources
+ * Debug endpoint para obtener valores válidos de lead_source directamente de Odoo
+ */
+router.get('/debug/lead-sources', async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+
+    logger.debug('[DEBUG] Consultando campos de repair.order...');
+
+    // Consultar directamente los campos del modelo repair.order
+    const fields = await odooClient.execute('repair.order', 'fields_get', [], {
+      attributes: ['selection', 'string', 'type', 'required'],
+      allfields: ['lead_source'],
+    }, userId);
+
+    logger.debug('[DEBUG] Respuesta fields_get:', JSON.stringify(fields, null, 2));
+
+    res.json({
+      success: true,
+      raw_response: fields,
+      lead_source: fields.lead_source || 'NOT_FOUND',
+      selection: fields.lead_source?.selection || [],
+    });
+  } catch (error) {
+    logger.error('[DEBUG] Error:', error);
+    next(error);
+  }
+});
+
+/**
  * POST /api/repair/checkin
  * Cliente llega a recoger - envía notificación al técnico
  * NOTE: This route must be BEFORE /:code to avoid being matched as a code
