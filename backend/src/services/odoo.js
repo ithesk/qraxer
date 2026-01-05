@@ -612,12 +612,13 @@ class OdooClient {
 
   /**
    * Obtener sucursales (branches) disponibles
+   * Nota: branch_id en repair.order es Many2one a repair.location
    */
   async getBranches(userId) {
-    log('Obteniendo sucursales...');
+    log('Obteniendo sucursales (repair.location)...');
 
     try {
-      const branches = await this.execute('res.branch', 'search_read', [
+      const branches = await this.execute('repair.location', 'search_read', [
         [],
       ], {
         fields: ['id', 'name'],
