@@ -3,6 +3,7 @@ import { api } from '../services/api';
 import { SkeletonHistoryList } from './Skeleton';
 import haptics from '../services/haptics';
 import { toast } from './Toast';
+import { NoteModal, PhotoModal, StateModal } from './shared/RepairActionModals';
 
 // WhatsApp icon
 const WhatsAppIcon = () => (
@@ -46,6 +47,24 @@ const CopyIcon = () => (
 const PhoneIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+  </svg>
+);
+
+// Note icon
+const NoteIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+  </svg>
+);
+
+// Camera icon
+const CameraIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
   </svg>
 );
 
@@ -156,6 +175,11 @@ export default function History() {
   const [error, setError] = useState(null);
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [copiedOrderId, setCopiedOrderId] = useState(null);
+
+  // Modal states
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showStateModal, setShowStateModal] = useState(false);
 
   useEffect(() => {
     loadRepairs();
@@ -550,7 +574,98 @@ export default function History() {
               </div>
             </div>
 
-            {/* Actions */}
+            {/* Quick Actions */}
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px',
+              background: 'var(--border-light)',
+              borderRadius: 'var(--radius-md)',
+            }}>
+              <div style={{
+                fontSize: '12px',
+                color: 'var(--text-muted)',
+                marginBottom: '10px',
+                fontWeight: '500',
+              }}>
+                ACCIONES RAPIDAS
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    haptics.selection();
+                    setShowNoteModal(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '12px',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <NoteIcon />
+                  Nota
+                </button>
+                <button
+                  onClick={() => {
+                    haptics.selection();
+                    setShowPhotoModal(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '12px',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <CameraIcon />
+                  Foto
+                </button>
+                <button
+                  onClick={() => {
+                    haptics.selection();
+                    setShowStateModal(true);
+                  }}
+                  style={{
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '12px',
+                    background: 'var(--card-bg)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '13px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <EditIcon />
+                  Estado
+                </button>
+              </div>
+            </div>
+
+            {/* Main Actions */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => handleShareWhatsApp(selectedRepair)}
@@ -573,33 +688,70 @@ export default function History() {
                 <WhatsAppIcon />
                 WhatsApp
               </button>
-              <button
-                onClick={() => {
-                  // TODO: Implementar cambio de estado
-                  haptics.selection();
-                  toast.info('Proximamente: Cambiar estado');
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  padding: '14px 16px',
-                  background: 'var(--border-light)',
-                  color: 'var(--text)',
-                  border: 'none',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                }}
-              >
-                <EditIcon />
-                Estado
-              </button>
+              {selectedRepair.partnerPhone && (
+                <button
+                  onClick={() => handleCall(selectedRepair.partnerPhone)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    padding: '14px 16px',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: 'var(--radius-md)',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <PhoneIcon />
+                  Llamar
+                </button>
+              )}
             </div>
           </div>
         </div>
+      )}
+
+      {/* Action Modals */}
+      {selectedRepair && (
+        <>
+          <NoteModal
+            isOpen={showNoteModal}
+            onClose={() => setShowNoteModal(false)}
+            repairId={selectedRepair.id}
+            repairName={selectedRepair.name}
+            onSuccess={() => {
+              toast.success('Nota agregada a ' + selectedRepair.name);
+            }}
+          />
+
+          <PhotoModal
+            isOpen={showPhotoModal}
+            onClose={() => setShowPhotoModal(false)}
+            repairId={selectedRepair.id}
+            repairName={selectedRepair.name}
+            onSuccess={() => {
+              // Photo uploaded successfully
+            }}
+          />
+
+          <StateModal
+            isOpen={showStateModal}
+            onClose={() => setShowStateModal(false)}
+            repairName={selectedRepair.name}
+            currentState={selectedRepair.state}
+            onSuccess={(newState) => {
+              // Update local state to reflect change
+              setRepairs(prev => prev.map(r =>
+                r.id === selectedRepair.id ? { ...r, state: newState } : r
+              ));
+              setSelectedRepair(prev => ({ ...prev, state: newState }));
+            }}
+          />
+        </>
       )}
     </div>
   );

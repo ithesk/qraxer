@@ -148,6 +148,42 @@ class ApiService {
     return data;
   }
 
+  /**
+   * Update repair state by repair ID (for OrderConfirmation)
+   */
+  async updateRepairState(repairId, newState, note = null) {
+    // Get the repair code first to use with updateState
+    const response = await this.request(`/repair/by-id/${repairId}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error('Error al obtener la reparación');
+    }
+
+    const repair = await response.json();
+
+    // Use the existing updateState with the QR content format
+    return this.updateState(`REP:${repair.name}`, newState, note);
+  }
+
+  /**
+   * Get available repair states
+   */
+  async getRepairStates() {
+    const response = await this.request('/repair/states', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener estados');
+    }
+
+    return data.states || [];
+  }
+
   getUser() {
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;

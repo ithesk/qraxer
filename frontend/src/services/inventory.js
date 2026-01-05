@@ -11,11 +11,23 @@ export const fetchProductByBarcode = async (barcode) => {
 };
 
 export const submitCounts = async (lines, locationId = null, notes = '') => {
-  const items = lines.map((line) => ({
+  // Filter out items without productId - backend requires valid productId
+  const validLines = lines.filter((line) => line.productId && typeof line.productId === 'number');
+
+  if (validLines.length === 0) {
+    throw new Error('No hay productos validos para enviar. Asegurate de escanear productos registrados en el sistema.');
+  }
+
+  if (validLines.length < lines.length) {
+    console.warn(`[Inventory] ${lines.length - validLines.length} productos sin ID fueron omitidos`);
+  }
+
+  // Map to backend expected format: productId and countedQty
+  const items = validLines.map((line) => ({
+    productId: line.productId,
+    countedQty: line.qty,
     barcode: line.barcode,
-    product_id: line.productId ?? null,
-    quantity: line.qty,
-    product_name: line.name,
+    productName: line.name,
   }));
 
   return api.submitInventoryCount(items, locationId, notes);
