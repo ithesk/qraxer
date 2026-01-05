@@ -168,13 +168,14 @@ const copyToClipboard = async (text) => {
   }
 };
 
-export default function History() {
+export default function History({ initialSelectedRepairId = null }) {
   const [filter, setFilter] = useState('week');
   const [repairs, setRepairs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [copiedOrderId, setCopiedOrderId] = useState(null);
+  const [didApplyInitialSelection, setDidApplyInitialSelection] = useState(false);
 
   // Modal states
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -184,6 +185,33 @@ export default function History() {
   useEffect(() => {
     loadRepairs();
   }, [filter]);
+
+  useEffect(() => {
+    if (!initialSelectedRepairId || didApplyInitialSelection) return;
+
+    // Try to find in loaded repairs first
+    const match = repairs.find((repair) => repair.id === initialSelectedRepairId);
+    if (match) {
+      setSelectedRepair(match);
+      setDidApplyInitialSelection(true);
+      return;
+    }
+
+    // If not found and loading is done, fetch from API
+    if (!isLoading && repairs.length >= 0) {
+      const fetchRepair = async () => {
+        try {
+          const repair = await api.getRepairById(initialSelectedRepairId);
+          setSelectedRepair(repair);
+          setDidApplyInitialSelection(true);
+        } catch (err) {
+          console.error('[History] Error fetching repair by ID:', err);
+          toast.error('No se pudo cargar la reparación');
+        }
+      };
+      fetchRepair();
+    }
+  }, [initialSelectedRepairId, didApplyInitialSelection, repairs, isLoading]);
 
   const loadRepairs = async () => {
     setIsLoading(true);
@@ -741,6 +769,7 @@ export default function History() {
           <StateModal
             isOpen={showStateModal}
             onClose={() => setShowStateModal(false)}
+            repairId={selectedRepair.id}
             repairName={selectedRepair.name}
             currentState={selectedRepair.state}
             onSuccess={(newState) => {

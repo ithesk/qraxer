@@ -167,6 +167,23 @@ class ApiService {
   }
 
   /**
+   * Get repair details by ID
+   */
+  async getRepairById(repairId) {
+    const response = await this.request(`/repair/by-id/${repairId}`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Error al obtener reparación');
+    }
+
+    const data = await response.json();
+    return data.repair;
+  }
+
+  /**
    * Get available repair states
    */
   async getRepairStates() {
