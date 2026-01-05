@@ -524,8 +524,17 @@ class OdooClient {
     }
 
     // Lead source - campo requerido en Odoo (NOT NULL)
-    // Siempre enviar un valor, usar 'direct' como fallback si no viene
-    repairData.lead_source = data.leadSource || 'direct';
+    // Ignorar 'walk_in' porque no es válido en este Odoo
+    // Usar 'direct' como fallback
+    const incomingLeadSource = data.leadSource;
+    log('[DEBUG] leadSource recibido:', incomingLeadSource);
+
+    if (incomingLeadSource && incomingLeadSource !== 'walk_in') {
+      repairData.lead_source = incomingLeadSource;
+    } else {
+      repairData.lead_source = 'direct';
+    }
+    log('[DEBUG] lead_source a enviar:', repairData.lead_source);
 
     // Nota adicional en descripción si existe
     if (data.note) {
