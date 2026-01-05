@@ -48,7 +48,7 @@ const QRIcon = () => (
   </svg>
 );
 
-export default function Scanner({ onScan }) {
+export default function Scanner({ onScan, onHistoryVisibilityChange }) {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,9 +56,15 @@ export default function Scanner({ onScan }) {
   const [showFlash, setShowFlash] = useState(false);
   const [useNative, setUseNative] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [historySelectedId, setHistorySelectedId] = useState(null);
   const videoRef = useRef(null);
   const scannerRef = useRef(null);
   const nativeScannerRef = useRef(null);
+
+  // Notify parent when history visibility changes
+  useEffect(() => {
+    onHistoryVisibilityChange?.(showHistory);
+  }, [showHistory, onHistoryVisibilityChange]);
 
   useEffect(() => {
     setUseNative(isNativePlatform());
@@ -330,7 +336,13 @@ export default function Scanner({ onScan }) {
             </div>
 
             {/* Recent Scans */}
-            <RecentScans />
+            <RecentScans
+              onOpenRepair={(scan) => {
+                haptics.selection();
+                setHistorySelectedId(scan.repairId);
+                setShowHistory(true);
+              }}
+            />
 
             {/* History button */}
             <button
@@ -436,7 +448,7 @@ export default function Scanner({ onScan }) {
         )}
       </div>
 
-      {/* History View */}
+      {/* History View - Full screen overlay that covers header and bottom nav */}
       {showHistory && (
         <div style={{
           position: 'fixed',
@@ -445,70 +457,46 @@ export default function Scanner({ onScan }) {
           right: 0,
           bottom: 0,
           background: 'var(--bg)',
-          zIndex: 100,
+          zIndex: 5000,
           display: 'flex',
           flexDirection: 'column',
+          paddingTop: 'env(safe-area-inset-top, 0px)',
         }}>
-          {/* Header with safe area - iOS style */}
-          <div style={{
-            background: 'white',
-            borderBottom: '1px solid var(--border-light)',
-            paddingTop: 'env(safe-area-inset-top, 0px)',
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '10px 16px',
-              minHeight: '44px',
-            }}>
-              {/* Back button - iOS style text */}
-              <button
-                onClick={() => {
-                  haptics.light();
-                  setShowHistory(false);
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  padding: '8px 4px',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'var(--primary)',
-                  fontSize: '16px',
-                  fontWeight: '400',
-                }}
-              >
-                <BackIcon />
-                <span>Atras</span>
-              </button>
-
-              {/* Title centered */}
-              <span style={{
-                position: 'absolute',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                fontSize: '17px',
-                fontWeight: '600',
-                color: 'var(--text)',
-              }}>
-                Historial
-              </span>
-
-              {/* Spacer for balance */}
-              <div style={{ width: '60px' }} />
-            </div>
-          </div>
-
+          {/* Scrollable content with back button inside */}
           <div style={{
             flex: 1,
             overflow: 'auto',
             padding: '16px',
-            paddingBottom: '100px',
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)',
           }}>
-            <History />
+            {/* Back button */}
+            <button
+              onClick={() => {
+                haptics.light();
+                setShowHistory(false);
+                setHistorySelectedId(null);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '12px 20px',
+                marginBottom: '16px',
+                background: 'var(--primary)',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                color: 'white',
+                fontSize: '15px',
+                fontWeight: '600',
+                width: '100%',
+              }}
+            >
+              <BackIcon />
+              <span>Volver a Reparaciones</span>
+            </button>
+
+            <History initialSelectedRepairId={historySelectedId} />
           </div>
         </div>
       )}

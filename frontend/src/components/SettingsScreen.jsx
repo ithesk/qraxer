@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { toast } from './Toast';
+import localNotificationsService from '../services/localNotifications';
 
 // Storage keys for user preferences
 export const USER_PREFS_KEYS = {
@@ -48,11 +49,53 @@ const ChevronIcon = () => (
   </svg>
 );
 
+const BellIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
 export default function SettingsScreen({ onBack }) {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showBranchPicker, setShowBranchPicker] = useState(false);
+  const [pendingNotifications, setPendingNotifications] = useState([]);
+  const [notificationsSupported] = useState(localNotificationsService.isSupported());
+
+  // Load pending notifications
+  useEffect(() => {
+    const loadPendingNotifications = async () => {
+      if (notificationsSupported) {
+        const pending = await localNotificationsService.getPendingNotifications();
+        setPendingNotifications(pending);
+      }
+    };
+    loadPendingNotifications();
+  }, [notificationsSupported]);
+
+  // Test notification
+  const handleTestNotification = async () => {
+    const sent = await localNotificationsService.sendTestNotification();
+    if (sent) {
+      toast.success('Notificacion enviada (3 seg)');
+    } else {
+      toast.error('No se pudo enviar');
+    }
+  };
+
+  // Schedule reminders
+  const handleScheduleReminders = async () => {
+    const scheduled = await localNotificationsService.scheduleRepairReminders();
+    if (scheduled) {
+      toast.success('Recordatorios programados');
+      const pending = await localNotificationsService.getPendingNotifications();
+      setPendingNotifications(pending);
+    } else {
+      toast.error('Error al programar');
+    }
+  };
 
   // Load branches and saved preference
   useEffect(() => {
@@ -165,6 +208,86 @@ export default function SettingsScreen({ onBack }) {
         <p className="settings-info">
           La sucursal seleccionada se usara automaticamente al crear nuevas ordenes de reparacion.
         </p>
+
+        {/* Section: Notificaciones */}
+        {notificationsSupported && (
+          <div className="settings-section" style={{ marginTop: '24px' }}>
+            <div className="settings-section-title">Notificaciones</div>
+
+            {/* Status */}
+            <div className="settings-item" style={{ cursor: 'default' }}>
+              <div className="settings-item-icon">
+                <BellIcon />
+              </div>
+              <div className="settings-item-content">
+                <div className="settings-item-label">Recordatorios activos</div>
+                <div className="settings-item-value">
+                  {pendingNotifications.length > 0
+                    ? `${pendingNotifications.length} programados`
+                    : 'Ninguno'}
+                </div>
+              </div>
+            </div>
+
+            {/* Pending notifications list */}
+            {pendingNotifications.length > 0 && (
+              <div style={{
+                padding: '12px 16px',
+                background: 'var(--bg)',
+                borderRadius: '8px',
+                marginTop: '8px',
+                fontSize: '12px',
+                color: 'var(--text-secondary)',
+              }}>
+                {pendingNotifications.map((n, i) => (
+                  <div key={n.id} style={{ marginBottom: i < pendingNotifications.length - 1 ? '4px' : 0 }}>
+                    <strong>{n.title}</strong>: {n.schedule?.at ? new Date(n.schedule.at).toLocaleString() : 'Programado'}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button
+                onClick={handleTestNotification}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Enviar prueba
+              </button>
+              <button
+                onClick={handleScheduleReminders}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                }}
+              >
+                Reprogramar
+              </button>
+            </div>
+
+            <p className="settings-info" style={{ marginTop: '12px' }}>
+              Recordatorios diarios a las 9:00 AM y 5:00 PM para revisar reparaciones.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Branch Picker Modal */}

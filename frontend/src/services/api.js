@@ -1,3 +1,5 @@
+import secureStorage from './secureStorage';
+
 // En producción (Vercel), la API está en el mismo dominio bajo /api
 // En desarrollo, usa el backend local en puerto 3001
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
@@ -13,6 +15,9 @@ class ApiService {
   constructor() {
     this.accessToken = null;
     this.refreshToken = null;
+    this.isRefreshing = false;
+    this.refreshPromise = null;
+    this.onSessionExpired = null; // Callback para cuando la sesión expira completamente
     this.loadTokens();
   }
 
@@ -42,7 +47,7 @@ class ApiService {
     return !!this.accessToken;
   }
 
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, retryCount = 0) {
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -52,17 +57,42 @@ class ApiService {
       headers['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    let response;
+    try {
+      response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+    } catch (networkError) {
+      // Error de red - no reintentar auth
+      throw networkError;
+    }
 
-    // Si el token expiró, intentar refresh
-    if (response.status === 401 && this.refreshToken) {
-      const refreshed = await this.tryRefresh();
-      if (refreshed) {
-        headers['Authorization'] = `Bearer ${this.accessToken}`;
-        return fetch(`${API_URL}${endpoint}`, { ...options, headers });
+    // Si el token expiró (401) o no autorizado (403)
+    if ((response.status === 401 || response.status === 403) && retryCount < 2) {
+      console.log(`[API] Auth error ${response.status} on ${endpoint}, attempting recovery...`);
+
+      // Paso 1: Intentar refresh token
+      if (this.refreshToken) {
+        const refreshed = await this.tryRefresh();
+        if (refreshed) {
+          console.log('[API] Token refreshed successfully, retrying request...');
+          return this.request(endpoint, options, retryCount + 1);
+        }
+      }
+
+      // Paso 2: Si refresh falló, intentar re-login silencioso
+      console.log('[API] Refresh failed, attempting silent re-login...');
+      const relogged = await this.trySilentRelogin();
+      if (relogged) {
+        console.log('[API] Silent re-login successful, retrying request...');
+        return this.request(endpoint, options, retryCount + 1);
+      }
+
+      // Paso 3: Todo falló, notificar sesión expirada
+      console.log('[API] All recovery attempts failed, session expired');
+      if (this.onSessionExpired) {
+        this.onSessionExpired();
       }
     }
 
@@ -70,7 +100,25 @@ class ApiService {
   }
 
   async tryRefresh() {
+    // Evitar múltiples refreshes simultáneos
+    if (this.isRefreshing) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = this._doRefresh();
+
     try {
+      return await this.refreshPromise;
+    } finally {
+      this.isRefreshing = false;
+      this.refreshPromise = null;
+    }
+  }
+
+  async _doRefresh() {
+    try {
+      console.log('[API] Attempting token refresh...');
       const response = await fetch(`${API_URL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -80,13 +128,51 @@ class ApiService {
       if (response.ok) {
         const data = await response.json();
         this.saveTokens(data.accessToken, this.refreshToken);
+        console.log('[API] Token refresh successful');
         return true;
       }
+      console.log('[API] Token refresh failed with status:', response.status);
     } catch (e) {
-      // Refresh failed
+      console.error('[API] Token refresh error:', e);
     }
 
-    this.clearTokens();
+    return false;
+  }
+
+  /**
+   * Intenta re-autenticar silenciosamente usando credenciales guardadas
+   */
+  async trySilentRelogin() {
+    try {
+      const credentials = await secureStorage.getCredentials();
+      if (!credentials) {
+        console.log('[API] No saved credentials for silent re-login');
+        return false;
+      }
+
+      console.log('[API] Attempting silent re-login...');
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: credentials.username,
+          password: credentials.password,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        this.saveTokens(data.accessToken, data.refreshToken);
+        localStorage.setItem('user', JSON.stringify(data.user));
+        console.log('[API] Silent re-login successful');
+        return true;
+      }
+
+      console.log('[API] Silent re-login failed with status:', response.status);
+    } catch (e) {
+      console.error('[API] Silent re-login error:', e);
+    }
+
     return false;
   }
 
@@ -106,6 +192,10 @@ class ApiService {
     this.saveTokens(data.accessToken, data.refreshToken);
     localStorage.setItem('user', JSON.stringify(data.user));
 
+    // Guardar credenciales para re-login automático
+    await secureStorage.saveCredentials(username, password);
+    console.log('[API] Credentials saved for auto re-login');
+
     return data.user;
   }
 
@@ -116,6 +206,17 @@ class ApiService {
       // Ignorar errores de logout
     }
     this.clearTokens();
+    // Limpiar credenciales guardadas
+    await secureStorage.clearCredentials();
+    console.log('[API] Credentials cleared on logout');
+  }
+
+  /**
+   * Configura el callback para cuando la sesión expira completamente
+   * (después de que refresh y re-login fallan)
+   */
+  setSessionExpiredCallback(callback) {
+    this.onSessionExpired = callback;
   }
 
   async scanQR(qrContent) {

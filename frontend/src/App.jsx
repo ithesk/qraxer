@@ -3,6 +3,7 @@ import { api } from './services/api';
 import { pushService } from './services/pushNotifications';
 import { orderQueue } from './services/orderQueue';
 import { queueProcessor } from './services/queueProcessor';
+import localNotificationsService from './services/localNotifications';
 import Login from './components/Login';
 import ToastContainer, { toast } from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
@@ -115,6 +116,7 @@ export default function App() {
   const [showProfileScreen, setShowProfileScreen] = useState(false);
   const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showMo35Ocr, setShowMo35Ocr] = useState(false);
+  const [showHistoryScreen, setShowHistoryScreen] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [userAvatar, setUserAvatar] = useState(() => {
     try {
@@ -164,8 +166,24 @@ export default function App() {
     }
   };
 
+  // Handle session expired - show login screen
+  const handleSessionExpired = () => {
+    console.log('[APP] Session expired, forcing logout...');
+    toast.error('Sesion expirada. Por favor, inicia sesion nuevamente.');
+    setUser(null);
+    setScanData(null);
+    setQrContent(null);
+    setResult(null);
+    setIsLoggedIn(false);
+    setActiveTab('scanner');
+    setScannerView(SCANNER_VIEWS.SCANNER);
+  };
+
   // Check auth and hide splash
   useEffect(() => {
+    // Configure session expired callback
+    api.setSessionExpiredCallback(handleSessionExpired);
+
     const initApp = async () => {
       // Initialize order queue (IndexedDB)
       try {
@@ -187,6 +205,13 @@ export default function App() {
         if (pushService.isSupported()) {
           pushService.initialize().catch(e =>
             console.warn('[APP] Error inicializando push:', e)
+          );
+        }
+
+        // Programar notificaciones locales si ya está logueado
+        if (localNotificationsService.isSupported()) {
+          localNotificationsService.scheduleRepairReminders().catch(e =>
+            console.warn('[APP] Error programando recordatorios:', e)
           );
         }
 
@@ -274,6 +299,18 @@ export default function App() {
         console.warn('[APP] Error inicializando push:', e);
       }
     }
+
+    // Programar notificaciones locales de recordatorio (9am y 5pm)
+    if (localNotificationsService.isSupported()) {
+      try {
+        const scheduled = await localNotificationsService.scheduleRepairReminders();
+        if (scheduled) {
+          console.log('[APP] Recordatorios locales programados');
+        }
+      } catch (e) {
+        console.warn('[APP] Error programando recordatorios:', e);
+      }
+    }
   };
 
   const handleLogout = async () => {
@@ -283,6 +320,15 @@ export default function App() {
         await pushService.unregisterToken();
       } catch (e) {
         console.warn('[APP] Error desregistrando push:', e);
+      }
+    }
+
+    // Cancelar notificaciones locales programadas
+    if (localNotificationsService.isSupported()) {
+      try {
+        await localNotificationsService.cancelRepairReminders();
+      } catch (e) {
+        console.warn('[APP] Error cancelando recordatorios:', e);
       }
     }
 
@@ -350,7 +396,7 @@ export default function App() {
     <>
       <ToastContainer />
       <OfflineBanner />
-      {!showProfileScreen && !showSettingsScreen && (
+      {!showProfileScreen && !showSettingsScreen && !showHistoryScreen && (
         <header className="header">
           <div className="header-content">
             {/* Minimal header: app icon, notifications, avatar */}
@@ -413,7 +459,7 @@ export default function App() {
         {isLoggedIn && !showProfileScreen && !showSettingsScreen && activeTab === 'scanner' && (
           <Suspense fallback={<LazySpinner />}>
             {scannerView === SCANNER_VIEWS.SCANNER && (
-              <Scanner onScan={handleScan} />
+              <Scanner onScan={handleScan} onHistoryVisibilityChange={setShowHistoryScreen} />
             )}
 
             {scannerView === SCANNER_VIEWS.CONFIRM && scanData && (
@@ -454,7 +500,7 @@ export default function App() {
         )}
       </main>
 
-      {isLoggedIn && !showProfileScreen && !showSettingsScreen && (
+      {isLoggedIn && !showProfileScreen && !showSettingsScreen && !showHistoryScreen && (
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       )}
 
