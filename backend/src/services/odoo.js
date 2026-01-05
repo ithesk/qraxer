@@ -523,12 +523,9 @@ class OdooClient {
       repairData.typerepair = data.equipment.typerepair;
     }
 
-    // Lead source - solo enviar si viene con un valor válido
-    // Ignorar 'walk_in' ya que es un valor legacy inválido en Odoo
-    // Odoo usará su valor por defecto si no se envía
-    if (data.leadSource && data.leadSource !== 'walk_in') {
-      repairData.lead_source = data.leadSource;
-    }
+    // Lead source - campo requerido en Odoo (NOT NULL)
+    // Siempre enviar un valor, usar 'direct' como fallback si no viene
+    repairData.lead_source = data.leadSource || 'direct';
 
     // Nota adicional en descripción si existe
     if (data.note) {
@@ -690,9 +687,10 @@ class OdooClient {
       logError('Error obteniendo fuentes de lead:', e.message);
     }
 
-    // Valores por defecto
+    // Valores por defecto - usar 'direct' como primer valor
+    // Si Odoo no acepta estos valores, dará error con los valores válidos
     return [
-      { value: 'walk_in', label: 'Cliente directo' },
+      { value: 'direct', label: 'Cliente directo' },
       { value: 'referral', label: 'Referido' },
       { value: 'social', label: 'Redes sociales' },
       { value: 'website', label: 'Sitio web' },

@@ -1,7 +1,38 @@
+import { useState, useRef } from 'react';
+import { api } from '../../services/api';
+import { toast } from '../Toast';
+import haptics from '../../services/haptics';
+
 // Success check icon (orange like mockup)
 const CheckIcon = () => (
   <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
     <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
+// Clock icon for pending/queued orders
+const ClockIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
+// Sync icon for syncing state
+const SyncIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+    <path d="M23 4v6h-6" />
+    <path d="M1 20v-6h6" />
+    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+  </svg>
+);
+
+// Error icon
+const ErrorIcon = () => (
+  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="15" y1="9" x2="9" y2="15" />
+    <line x1="9" y1="9" x2="15" y2="15" />
   </svg>
 );
 
@@ -54,6 +85,21 @@ const CameraIcon = () => (
   </svg>
 );
 
+// Close icon
+const CloseIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
+// Check small icon
+const CheckSmallIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
 // Problem labels for display
 const problemLabels = {
   screen: 'Pantalla',
@@ -65,11 +111,41 @@ const problemLabels = {
 };
 
 export default function OrderConfirmation({ orderResult, onCreateAnother, onRetry }) {
-  const { tempId, realName, status, client, equipment, problems } = orderResult;
+  const {
+    localId,
+    tempDisplayId,
+    realId,
+    realName,
+    status,
+    client,
+    equipment,
+    problems,
+    duplicate,
+  } = orderResult;
 
-  const displayId = realName || tempId;
+  // Use realId from the API response (set after successful creation)
+  const repairId = realId;
+
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [isSubmittingPhoto, setIsSubmittingPhoto] = useState(false);
+  const [noteAdded, setNoteAdded] = useState(false);
+  const [photosUploaded, setPhotosUploaded] = useState(0);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Display the real order name if synced, or temp ID if pending
+  const displayId = realName || tempDisplayId || 'Procesando...';
+
+  // Status flags
   const isPending = status === 'pending';
+  const isSyncing = status === 'syncing';
   const isFailed = status === 'failed';
+  const isConfirmed = status === 'confirmed';
+  const isQueued = isPending || isSyncing; // Local order waiting to sync
 
   const handleShareWhatsApp = () => {
     const problemText = problems.map(p => problemLabels[p] || p).join(', ');
@@ -78,54 +154,169 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
     window.open(url, '_blank');
   };
 
+  // Handle note submission
+  const handleSubmitNote = async () => {
+    if (!noteText.trim() || !repairId) return;
+
+    setIsSubmittingNote(true);
+    try {
+      await api.addRepairNote(repairId, noteText.trim());
+      haptics.success();
+      toast.success('Nota agregada');
+      setNoteText('');
+      setShowNoteModal(false);
+      setNoteAdded(true);
+    } catch (error) {
+      haptics.error();
+      toast.error(error.message || 'Error al agregar nota');
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  // Handle photo capture from camera or file
+  const handlePhotoSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPreviewImage(event.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle photo upload
+  const handleUploadPhoto = async () => {
+    if (!previewImage || !repairId) return;
+
+    setIsSubmittingPhoto(true);
+    try {
+      await api.uploadRepairPhoto(repairId, previewImage);
+      haptics.success();
+      toast.success('Foto subida');
+      setPreviewImage(null);
+      setPhotosUploaded(prev => prev + 1);
+      // Don't close modal to allow more photos
+    } catch (error) {
+      haptics.error();
+      toast.error(error.message || 'Error al subir foto');
+    } finally {
+      setIsSubmittingPhoto(false);
+    }
+  };
+
+  // Open camera for photo
+  const handleOpenCamera = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // Determine icon and colors based on status
+  const getStatusConfig = () => {
+    if (isFailed) {
+      return {
+        icon: <ErrorIcon />,
+        bgGradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+        shadow: 'rgba(239, 68, 68, 0.4)',
+        badge: { bg: '#fef2f2', color: '#dc2626', text: 'Error' },
+      };
+    }
+    if (isSyncing) {
+      return {
+        icon: <SyncIcon />,
+        bgGradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+        shadow: 'rgba(59, 130, 246, 0.4)',
+        badge: { bg: '#eff6ff', color: '#2563eb', text: 'Sincronizando...' },
+        spin: true,
+      };
+    }
+    if (isPending) {
+      return {
+        icon: <ClockIcon />,
+        bgGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+        shadow: 'rgba(245, 158, 11, 0.4)',
+        badge: { bg: '#fffbeb', color: '#d97706', text: 'Guardado localmente' },
+      };
+    }
+    // Confirmed
+    return {
+      icon: <CheckIcon />,
+      bgGradient: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+      shadow: 'rgba(249, 115, 22, 0.4)',
+      badge: { bg: '#fff7ed', color: '#ea580c', text: duplicate ? 'Ya existía' : 'Recibido' },
+    };
+  };
+
+  const statusConfig = getStatusConfig();
+
   return (
     <div className="fade-in">
-      {/* Success Header - Orange like mockup */}
+      {/* Header with status-aware styling */}
       <div style={{
         textAlign: 'center',
         padding: '32px 20px',
       }}>
-        {/* Orange Check Icon */}
+        {/* Status Icon */}
         <div style={{
           width: '72px',
           height: '72px',
-          background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+          background: statusConfig.bgGradient,
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           margin: '0 auto 20px',
-          boxShadow: '0 4px 14px rgba(249, 115, 22, 0.4)',
+          boxShadow: `0 4px 14px ${statusConfig.shadow}`,
+          animation: statusConfig.spin ? 'spin 2s linear infinite' : 'none',
         }}>
-          <CheckIcon />
+          {statusConfig.icon}
         </div>
 
         {/* Order Number */}
         <div style={{
           fontSize: '28px',
           fontWeight: '700',
-          color: isPending ? 'var(--text-muted)' : 'var(--text)',
+          color: isQueued ? 'var(--text-muted)' : 'var(--text)',
           marginBottom: '8px',
         }}>
           {displayId}
-          {isPending && (
-            <div className="spinner spinner-dark" style={{ width: '20px', height: '20px', margin: '8px auto 0' }} />
-          )}
         </div>
 
-        {/* State Badge - Orange */}
+        {/* State Badge */}
         <span style={{
           display: 'inline-flex',
           alignItems: 'center',
+          gap: '6px',
           padding: '6px 14px',
-          background: '#fff7ed',
-          color: '#ea580c',
+          background: statusConfig.badge.bg,
+          color: statusConfig.badge.color,
           borderRadius: '20px',
           fontSize: '13px',
           fontWeight: '600',
         }}>
-          Recibido
+          {isSyncing && (
+            <div className="spinner" style={{
+              width: '12px',
+              height: '12px',
+              borderWidth: '2px',
+              borderColor: `${statusConfig.badge.color} transparent transparent transparent`,
+            }} />
+          )}
+          {statusConfig.badge.text}
         </span>
+
+        {/* Offline hint */}
+        {isQueued && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+          }}>
+            Se sincronizará automáticamente al recuperar conexión
+          </div>
+        )}
       </div>
 
       {/* Client Info Card */}
@@ -177,17 +368,44 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
 
       {/* Action Buttons - Like mockup */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {isFailed ? (
-          <button className="btn-primary btn-large" onClick={onRetry}>
-            <RetryIcon />
-            Reintentar
+        {/* Show retry button for failed OR pending (queued) orders */}
+        {(isFailed || isPending) && (
+          <button
+            className="btn-primary btn-large"
+            onClick={async () => {
+              if (!localId || isRetrying || isSyncing) return;
+              setIsRetrying(true);
+              try {
+                await onRetry();
+              } finally {
+                setIsRetrying(false);
+              }
+            }}
+            disabled={!localId || isRetrying || isSyncing}
+            style={{
+              opacity: (!localId || isRetrying || isSyncing) ? 0.6 : 1,
+            }}
+          >
+            {isRetrying ? (
+              <>
+                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                Sincronizando...
+              </>
+            ) : (
+              <>
+                <RetryIcon />
+                {isFailed ? 'Reintentar' : 'Sincronizar ahora'}
+              </>
+            )}
           </button>
-        ) : (
+        )}
+
+        {/* Regular action buttons - only when confirmed */}
+        {isConfirmed && (
           <>
             <button
               className="btn-large"
               onClick={() => {}}
-              disabled={isPending}
               style={{
                 background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
                 color: 'white',
@@ -198,7 +416,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
               Tomar reparacion
             </button>
 
-            <button className="btn-secondary btn-large" disabled={isPending}>
+            <button className="btn-secondary btn-large">
               <EditIcon />
               Cambiar estado
             </button>
@@ -206,7 +424,6 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
             <button
               className="btn-large"
               onClick={handleShareWhatsApp}
-              disabled={isPending}
               style={{
                 background: '#25D366',
                 color: 'white',
@@ -218,29 +435,91 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
           </>
         )}
 
-        {/* Notas / Fotos section - Like mockup */}
-        <div style={{
-          display: 'flex',
-          gap: '12px',
-          marginTop: '8px',
-        }}>
+        {/* WhatsApp available even when syncing (can share temp ID) */}
+        {isSyncing && (
           <button
-            className="btn-secondary btn-large"
-            disabled={isPending}
-            style={{ flex: 1, gap: '8px' }}
+            className="btn-large"
+            onClick={handleShareWhatsApp}
+            style={{
+              background: '#25D366',
+              color: 'white',
+            }}
           >
-            <NoteIcon />
-            Notas
+            <WhatsAppIcon />
+            Compartir por WhatsApp
           </button>
-          <button
-            className="btn-secondary btn-large"
-            disabled={isPending}
-            style={{ flex: 1, gap: '8px' }}
-          >
-            <CameraIcon />
-            Fotos
-          </button>
-        </div>
+        )}
+
+        {/* Notas / Fotos section - Only available when confirmed (has repairId) */}
+        {isConfirmed && repairId && (
+          <div style={{
+            display: 'flex',
+            gap: '12px',
+            marginTop: '8px',
+          }}>
+            <button
+              className="btn-secondary btn-large"
+              onClick={() => setShowNoteModal(true)}
+              style={{
+                flex: 1,
+                gap: '8px',
+                position: 'relative',
+              }}
+            >
+              <NoteIcon />
+              Notas
+              {noteAdded && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  width: '20px',
+                  height: '20px',
+                  background: 'var(--success)',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                }}>
+                  <CheckSmallIcon />
+                </span>
+              )}
+            </button>
+            <button
+              className="btn-secondary btn-large"
+              onClick={() => setShowPhotoModal(true)}
+              style={{
+                flex: 1,
+                gap: '8px',
+                position: 'relative',
+              }}
+            >
+              <CameraIcon />
+              Fotos
+              {photosUploaded > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  minWidth: '20px',
+                  height: '20px',
+                  padding: '0 6px',
+                  background: 'var(--success)',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: '700',
+                }}>
+                  {photosUploaded}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
 
         <button
           className="btn-ghost btn-large"
@@ -250,6 +529,248 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
           Crear otra orden
         </button>
       </div>
+
+      {/* Note Modal */}
+      {showNoteModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !isSubmittingNote && setShowNoteModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              background: 'var(--card-bg)',
+              borderRadius: '20px 20px 0 0',
+              padding: '20px',
+              maxHeight: '80vh',
+              overflow: 'auto',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+            }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                Agregar Nota
+              </h3>
+              <button
+                onClick={() => setShowNoteModal(false)}
+                disabled={isSubmittingNote}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              Orden: <strong>{displayId}</strong>
+            </div>
+
+            <textarea
+              placeholder="Escribe una nota para esta orden..."
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              disabled={isSubmittingNote}
+              autoFocus
+              style={{
+                width: '100%',
+                minHeight: '120px',
+                padding: '12px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg)',
+                fontSize: '15px',
+                resize: 'vertical',
+                fontFamily: 'inherit',
+              }}
+            />
+
+            <button
+              className="btn-primary btn-large"
+              onClick={handleSubmitNote}
+              disabled={!noteText.trim() || isSubmittingNote}
+              style={{ width: '100%', marginTop: '16px' }}
+            >
+              {isSubmittingNote ? (
+                <>
+                  <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <NoteIcon />
+                  Guardar Nota
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Modal */}
+      {showPhotoModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !isSubmittingPhoto && setShowPhotoModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              background: 'var(--card-bg)',
+              borderRadius: '20px 20px 0 0',
+              padding: '20px',
+              maxHeight: '80vh',
+              overflow: 'auto',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+            }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                Agregar Foto
+              </h3>
+              <button
+                onClick={() => {
+                  setShowPhotoModal(false);
+                  setPreviewImage(null);
+                }}
+                disabled={isSubmittingPhoto}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '12px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              Orden: <strong>{displayId}</strong>
+              {photosUploaded > 0 && (
+                <span style={{ marginLeft: '12px', color: 'var(--success)' }}>
+                  {photosUploaded} foto{photosUploaded > 1 ? 's' : ''} subida{photosUploaded > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoSelect}
+              style={{ display: 'none' }}
+            />
+
+            {/* Preview or capture button */}
+            {previewImage ? (
+              <div style={{ marginBottom: '16px' }}>
+                <img
+                  src={previewImage}
+                  alt="Preview"
+                  style={{
+                    width: '100%',
+                    maxHeight: '300px',
+                    objectFit: 'contain',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg)',
+                  }}
+                />
+                <button
+                  className="btn-ghost"
+                  onClick={() => {
+                    setPreviewImage(null);
+                    handleOpenCamera();
+                  }}
+                  disabled={isSubmittingPhoto}
+                  style={{ width: '100%', marginTop: '8px' }}
+                >
+                  Tomar otra foto
+                </button>
+              </div>
+            ) : (
+              <button
+                className="btn-secondary btn-large"
+                onClick={handleOpenCamera}
+                style={{
+                  width: '100%',
+                  minHeight: '150px',
+                  flexDirection: 'column',
+                  gap: '12px',
+                  border: '2px dashed var(--border)',
+                }}
+              >
+                <CameraIcon />
+                <span>Tomar Foto</span>
+              </button>
+            )}
+
+            <button
+              className="btn-primary btn-large"
+              onClick={handleUploadPhoto}
+              disabled={!previewImage || isSubmittingPhoto}
+              style={{ width: '100%', marginTop: '16px' }}
+            >
+              {isSubmittingPhoto ? (
+                <>
+                  <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+                  Subiendo...
+                </>
+              ) : (
+                <>
+                  <CameraIcon />
+                  Subir Foto
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

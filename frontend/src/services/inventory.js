@@ -10,7 +10,7 @@ export const fetchProductByBarcode = async (barcode) => {
   return null;
 };
 
-export const submitCounts = async (lines) => {
+export const submitCounts = async (lines, locationId = null, notes = '') => {
   const items = lines.map((line) => ({
     barcode: line.barcode,
     product_id: line.productId ?? null,
@@ -18,6 +18,5 @@ export const submitCounts = async (lines) => {
     product_name: line.name,
   }));
 
-  // TODO: Wire a location selector if backend requires locationId.
-  return api.submitInventoryCount(items, null, '');
+  return api.submitInventoryCount(items, locationId, notes);
 };

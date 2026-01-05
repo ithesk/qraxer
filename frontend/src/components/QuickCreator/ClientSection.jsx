@@ -83,7 +83,7 @@ export default function ClientSection({ client, onClientSelect }) {
   }, []);
 
   const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+    const value = e.target.value.replace(/\D/g, '').slice(0, 11);
     setPhone(value);
 
     // Reset search when phone changes significantly
@@ -98,8 +98,8 @@ export default function ClientSection({ client, onClientSelect }) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // Auto-search when phone reaches 10 digits
-    if (value.length === 10) {
+    // Auto-search when phone reaches 10 or 11 digits
+    if (value.length >= 10) {
       searchTimeoutRef.current = setTimeout(() => {
         doSearch(value);
       }, 300);
@@ -123,11 +123,24 @@ export default function ClientSection({ client, onClientSelect }) {
       return;
     }
 
+    // Validate phone has at least 10 digits
+    if (phone.length < 10) {
+      haptics.warning();
+      toast.warning('El teléfono debe tener al menos 10 dígitos');
+      return;
+    }
+
+    // Auto-add "1" prefix if phone is 10 digits (Dominican Republic format)
+    let formattedPhone = phone;
+    if (phone.length === 10) {
+      formattedPhone = '1' + phone;
+    }
+
     haptics.success();
     onClientSelect({
       id: null,
       name: newClientName.trim(),
-      phone,
+      phone: formattedPhone,
       isNew: true,
     });
   };
@@ -239,10 +252,10 @@ export default function ClientSection({ client, onClientSelect }) {
             <input
               type="tel"
               inputMode="numeric"
-              placeholder="Teléfono del cliente"
+              placeholder="Ej: 8092742666"
               value={phone}
               onChange={handlePhoneChange}
-              maxLength={10}
+              maxLength={11}
               style={{
                 paddingLeft: '44px',
                 paddingRight: isSearching ? '90px' : '50px',
@@ -280,7 +293,7 @@ export default function ClientSection({ client, onClientSelect }) {
                 {phone.length}/10
               </div>
             )}
-            {phone.length === 10 && !isSearching && (
+            {phone.length >= 10 && !isSearching && (
               <div style={{
                 position: 'absolute',
                 right: '16px',

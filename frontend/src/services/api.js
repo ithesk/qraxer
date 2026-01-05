@@ -193,11 +193,19 @@ class ApiService {
 
   /**
    * Create repair order
+   * @param {Object} orderData - Order data
+   * @param {string} idempotencyKey - Optional key to prevent duplicates
+   * @returns {Promise<{success: boolean, duplicate: boolean, repair: Object}>}
    */
-  async createRepairOrder(orderData) {
+  async createRepairOrder(orderData, idempotencyKey = null) {
+    const payload = { ...orderData };
+    if (idempotencyKey) {
+      payload.idempotencyKey = idempotencyKey;
+    }
+
     const response = await this.request('/repair/create', {
       method: 'POST',
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
@@ -214,16 +222,24 @@ class ApiService {
    * Call this once at login and cache the result
    */
   async getRepairConfig() {
+    console.log('[API] getRepairConfig() - starting...');
+    console.log('[API] getRepairConfig() - accessToken exists:', !!this.accessToken);
+
     const response = await this.request('/repair/config', {
       method: 'GET',
     });
 
+    console.log('[API] getRepairConfig() - response status:', response.status);
+
     const data = await response.json();
+    console.log('[API] getRepairConfig() - data:', JSON.stringify(data));
 
     if (!response.ok) {
+      console.error('[API] getRepairConfig() - ERROR:', data.error);
       throw new Error(data.error || 'Error al obtener configuracion');
     }
 
+    console.log('[API] getRepairConfig() - branches count:', data.branches?.length || 0);
     return data;
   }
 
@@ -339,6 +355,19 @@ class ApiService {
   }
 
   /**
+   * Quick check if currently online
+   * @returns {Promise<boolean>}
+   */
+  async isOnline() {
+    try {
+      const result = await this.checkConnection();
+      return result.online;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
    * Check API connection status
    * @returns {Promise<{online: boolean, latency: number}>}
    */
@@ -413,6 +442,56 @@ class ApiService {
 
     if (!response.ok) {
       throw new Error(data.error || 'Error al enviar conteo');
+    }
+
+    return data;
+  }
+
+  // === Repair Notes & Photos Methods ===
+
+  /**
+   * Add note to repair order chatter
+   * @param {number} repairId - Repair order ID
+   * @param {string} note - Note text
+   * @returns {Promise<{success: boolean, repairId: number, repairName: string}>}
+   */
+  async addRepairNote(repairId, note) {
+    const response = await this.request(`/repair/${repairId}/note`, {
+      method: 'POST',
+      body: JSON.stringify({ note }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al agregar nota');
+    }
+
+    return data;
+  }
+
+  /**
+   * Upload photo to repair order chatter
+   * @param {number} repairId - Repair order ID
+   * @param {string} imageBase64 - Base64 encoded image
+   * @param {string} filename - Optional filename
+   * @param {string} description - Optional description
+   * @returns {Promise<{success: boolean, repairId: number, attachmentId: number}>}
+   */
+  async uploadRepairPhoto(repairId, imageBase64, filename = null, description = null) {
+    const response = await this.request(`/repair/${repairId}/photo`, {
+      method: 'POST',
+      body: JSON.stringify({
+        image: imageBase64,
+        filename,
+        description,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al subir foto');
     }
 
     return data;

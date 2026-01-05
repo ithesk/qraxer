@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../services/api';
+import { queueProcessor } from '../services/queueProcessor';
+import { orderQueue } from '../services/orderQueue';
 
 // Wifi Off icon
 const WifiOffIcon = () => (
@@ -24,7 +26,24 @@ const CheckIcon = () => (
 export default function OfflineBanner() {
   const [isOnline, setIsOnline] = useState(null); // null = checking
   const [showReconnected, setShowReconnected] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
   const wasOfflineRef = useRef(false);
+
+  // Subscribe to queue changes to show pending count
+  useEffect(() => {
+    const unsubscribe = orderQueue.subscribe(async () => {
+      const pending = await orderQueue.getPendingOrders();
+      setPendingCount(pending.length);
+    });
+
+    // Initial count
+    orderQueue.getPendingOrders().then(pending => {
+      setPendingCount(pending.length);
+    });
+
+    return unsubscribe;
+  }, []);
 
   const checkConnection = useCallback(async () => {
     try {
@@ -35,6 +54,18 @@ export default function OfflineBanner() {
       if (wasOfflineRef.current && newOnlineState) {
         setShowReconnected(true);
         setTimeout(() => setShowReconnected(false), 3000);
+
+        // SYNC QUEUE when connection is restored
+        console.log('[OfflineBanner] Connection restored, triggering queue sync...');
+        setIsSyncing(true);
+        try {
+          const syncResult = await queueProcessor.processQueue();
+          console.log('[OfflineBanner] Sync result:', syncResult);
+        } catch (e) {
+          console.error('[OfflineBanner] Sync error:', e);
+        } finally {
+          setIsSyncing(false);
+        }
       }
 
       if (!newOnlineState) {
@@ -70,7 +101,7 @@ export default function OfflineBanner() {
     };
   }, [checkConnection]);
 
-  // Show reconnected message
+  // Show reconnected message with sync status
   if (showReconnected) {
     return (
       <div
@@ -93,8 +124,17 @@ export default function OfflineBanner() {
           boxShadow: 'var(--shadow-lg)',
         }}
       >
-        <CheckIcon />
-        <span>Conexion restaurada</span>
+        {isSyncing ? (
+          <>
+            <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+            <span>Sincronizando órdenes pendientes...</span>
+          </>
+        ) : (
+          <>
+            <CheckIcon />
+            <span>Conexión restaurada</span>
+          </>
+        )}
       </div>
     );
   }
@@ -141,13 +181,15 @@ export default function OfflineBanner() {
           color: '#92400e',
           marginBottom: '2px',
         }}>
-          Sin conexion
+          Sin conexión
         </div>
         <div style={{
           fontSize: '12px',
           color: '#a16207',
         }}>
-          Algunas funciones no estan disponibles
+          {pendingCount > 0
+            ? `${pendingCount} orden${pendingCount > 1 ? 'es' : ''} pendiente${pendingCount > 1 ? 's' : ''} de sincronizar`
+            : 'Algunas funciones no están disponibles'}
         </div>
       </div>
     </div>
