@@ -1,4 +1,4 @@
-// Bottom Navigation Component - iOS Style with FAB center button
+// Bottom Navigation Component - iOS Style with 3 buttons and FAB center
 import haptics from '../services/haptics';
 
 // QR Scanner Icon
@@ -19,23 +19,6 @@ const ScanIcon = ({ active }) => (
   </svg>
 );
 
-// Clock/History Icon
-const HistoryIcon = ({ active }) => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-    <circle
-      cx="12" cy="12" r="10"
-      stroke={active ? 'var(--primary)' : 'currentColor'}
-      fill={active ? 'var(--primary-bg)' : 'none'}
-    />
-    <polyline
-      points="12 6 12 12 16 14"
-      stroke={active ? 'var(--primary)' : 'currentColor'}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 // Product/Barcode Icon
 const ProductIcon = ({ active }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
@@ -48,16 +31,20 @@ const ProductIcon = ({ active }) => (
   </svg>
 );
 
-// Inventory/Box Icon
 const InventoryIcon = ({ active }) => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
-    <path
-      d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"
-      stroke={active ? 'var(--primary)' : 'currentColor'}
-      fill={active ? 'var(--primary-bg)' : 'none'}
-    />
-    <path d="m3.3 7 8.7 5 8.7-5" stroke={active ? 'var(--primary)' : 'currentColor'} />
-    <path d="M12 22V12" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <rect x="4" y="3" width="16" height="18" rx="2" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 7h8" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 11h8" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 15h5" stroke={active ? 'var(--primary)' : 'currentColor'} />
+  </svg>
+);
+
+const OcrIcon = ({ active }) => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" strokeWidth="1.8">
+    <rect x="3" y="4" width="18" height="16" rx="2" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 9h8" stroke={active ? 'var(--primary)' : 'currentColor'} />
+    <path d="M8 13h6" stroke={active ? 'var(--primary)' : 'currentColor'} />
   </svg>
 );
 
@@ -73,60 +60,71 @@ export default function BottomNav({ activeTab, onTabChange }) {
 
   return (
     <nav className="bottom-nav">
-      {/* Escanear */}
-      <button
-        className={`bottom-nav-item ${activeTab === 'scanner' ? 'active' : ''}`}
-        onClick={() => handleTabClick('scanner')}
-        aria-label="Escanear"
-      >
-        <span className="bottom-nav-icon">
-          <ScanIcon active={activeTab === 'scanner'} />
-        </span>
-        <span className="bottom-nav-label">Escanear</span>
-      </button>
+      <div className="bottom-nav-inner">
+        <div className="bottom-nav-group">
+          {/* Escanear / Reparaciones */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'scanner' ? 'active' : ''}`}
+            onClick={() => handleTabClick('scanner')}
+            aria-label="Reparaciones"
+          >
+            <span className="bottom-nav-icon">
+              <ScanIcon active={activeTab === 'scanner'} />
+            </span>
+            <span className="bottom-nav-label">Reparaciones</span>
+          </button>
 
-      {/* Crear - FAB prominente */}
-      <button
-        className="bottom-nav-fab"
-        onClick={() => handleTabClick('creator')}
-        aria-label="Crear"
-        style={{
-          background: isCreatorActive
-            ? 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)'
-            : 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-          boxShadow: '0 4px 15px rgba(37, 99, 235, 0.4)',
-          transform: isCreatorActive ? 'scale(1.05)' : 'scale(1)',
-        }}
-      >
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-          <line x1="12" y1="5" x2="12" y2="19" />
-          <line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      </button>
+          {/* Inventario */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
+            onClick={() => handleTabClick('inventory')}
+            aria-label="Inventario"
+          >
+            <span className="bottom-nav-icon">
+              <InventoryIcon active={activeTab === 'inventory'} />
+            </span>
+            <span className="bottom-nav-label">Inventario</span>
+          </button>
+        </div>
 
-      {/* Inventario */}
-      <button
-        className={`bottom-nav-item ${activeTab === 'inventory' ? 'active' : ''}`}
-        onClick={() => handleTabClick('inventory')}
-        aria-label="Inventario"
-      >
-        <span className="bottom-nav-icon">
-          <InventoryIcon active={activeTab === 'inventory'} />
-        </span>
-        <span className="bottom-nav-label">Inventario</span>
-      </button>
+        {/* Crear - FAB prominente centrado */}
+        <button
+          className={`bottom-nav-fab ${isCreatorActive ? 'active' : ''}`}
+          onClick={() => handleTabClick('creator')}
+          aria-label="Crear"
+        >
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
 
-      {/* Historial */}
-      <button
-        className={`bottom-nav-item ${activeTab === 'history' ? 'active' : ''}`}
-        onClick={() => handleTabClick('history')}
-        aria-label="Historial"
-      >
-        <span className="bottom-nav-icon">
-          <HistoryIcon active={activeTab === 'history'} />
-        </span>
-        <span className="bottom-nav-label">Historial</span>
-      </button>
+        <div className="bottom-nav-group">
+          {/* mo35 OCR */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'mo35' ? 'active' : ''}`}
+            onClick={() => handleTabClick('mo35')}
+            aria-label="mo35"
+          >
+            <span className="bottom-nav-icon">
+              <OcrIcon active={activeTab === 'mo35'} />
+            </span>
+            <span className="bottom-nav-label">mo35</span>
+          </button>
+
+          {/* Productos */}
+          <button
+            className={`bottom-nav-item ${activeTab === 'products' ? 'active' : ''}`}
+            onClick={() => handleTabClick('products')}
+            aria-label="Productos"
+          >
+            <span className="bottom-nav-icon">
+              <ProductIcon active={activeTab === 'products'} />
+            </span>
+            <span className="bottom-nav-label">Productos</span>
+          </button>
+        </div>
+      </div>
     </nav>
   );
 }

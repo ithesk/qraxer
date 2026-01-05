@@ -53,8 +53,12 @@ export const config = {
     allowSimpleCodes: optional('ALLOW_SIMPLE_QR', 'false') === 'true',
   },
 
-  // CORS
-  corsOrigins: optional('CORS_ORIGINS', 'http://localhost:5173').split(','),
+  // CORS - Si es '*' permitir todo, sino parsear como lista
+  corsOrigins: (() => {
+    const origins = optional('CORS_ORIGINS', 'http://localhost:5173');
+    if (origins === '*') return true; // cors() acepta true para permitir todo
+    return origins.split(',').map(o => o.trim());
+  })(),
 
   // Rate Limiting
   rateLimit: {

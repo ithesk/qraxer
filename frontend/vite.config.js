@@ -25,6 +25,9 @@ const versionPlugin = () => ({
 });
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   server: {
     host: true,
   },
@@ -50,7 +53,7 @@ export default defineConfig({
   plugins: [
     react(),
     versionPlugin(),
-    VitePWA({
+    process.env.DISABLE_PWA === '1' ? null : VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.svg',
@@ -166,5 +169,5 @@ export default defineConfig({
         enabled: false, // Deshabilitar en desarrollo para evitar problemas
       },
     }),
-  ],
+  ].filter(Boolean),
 });

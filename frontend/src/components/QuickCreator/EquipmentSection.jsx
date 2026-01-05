@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import { isNativePlatform, scanOnce } from '../../services/nativeScanner';
+import haptics from '../../services/haptics';
 
 // Icons
 const CheckIcon = () => (
@@ -56,6 +58,114 @@ const EyeOffIcon = () => (
     <line x1="1" y1="1" x2="23" y2="23" />
   </svg>
 );
+
+const ScanIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M3 7V5a2 2 0 0 1 2-2h2" />
+    <path d="M17 3h2a2 2 0 0 1 2 2v2" />
+    <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
+    <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
+    <line x1="7" y1="12" x2="17" y2="12" />
+  </svg>
+);
+
+// Functionality check icons
+const FaceIdIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <circle cx="9" cy="10" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="15" cy="10" r="1.5" fill="currentColor" stroke="none" />
+    <path d="M9 15c1 1 5 1 6 0" />
+  </svg>
+);
+
+const CameraFrontIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <circle cx="12" cy="6" r="2" />
+  </svg>
+);
+
+const CameraBackIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <circle cx="12" cy="10" r="3" />
+    <circle cx="15" cy="6" r="1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const TouchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 11V3" />
+    <path d="M14 13l4 4" />
+    <path d="M10 13l-4 4" />
+    <circle cx="12" cy="14" r="3" />
+  </svg>
+);
+
+const ScreenIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <line x1="8" y1="7" x2="16" y2="7" />
+    <line x1="8" y1="11" x2="16" y2="11" />
+  </svg>
+);
+
+const ButtonsIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="6" y="3" width="12" height="18" rx="2" />
+    <line x1="3" y1="9" x2="3" y2="15" strokeWidth="3" strokeLinecap="round" />
+    <line x1="21" y1="9" x2="21" y2="12" strokeWidth="3" strokeLinecap="round" />
+  </svg>
+);
+
+const SpeakerIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+  </svg>
+);
+
+const MicIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+    <line x1="12" y1="19" x2="12" y2="23" />
+    <line x1="8" y1="23" x2="16" y2="23" />
+  </svg>
+);
+
+const WifiIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+    <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+    <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+    <circle cx="12" cy="20" r="1" fill="currentColor" />
+  </svg>
+);
+
+const ChargingIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="6" y="4" width="12" height="16" rx="2" />
+    <line x1="10" y1="2" x2="14" y2="2" />
+    <polygon points="13 9 11 12 13 12 11 15" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+// Functionality checks configuration
+const FUNCTIONALITY_CHECKS = [
+  { id: 'faceId', label: 'Face ID / Touch ID', icon: FaceIdIcon },
+  { id: 'frontCamera', label: 'Cámara frontal', icon: CameraFrontIcon },
+  { id: 'backCamera', label: 'Cámara trasera', icon: CameraBackIcon },
+  { id: 'touchScreen', label: 'Pantalla táctil', icon: TouchIcon },
+  { id: 'screenDisplay', label: 'Pantalla (sin manchas)', icon: ScreenIcon },
+  { id: 'buttons', label: 'Botones', icon: ButtonsIcon },
+  { id: 'speaker', label: 'Altavoz', icon: SpeakerIcon },
+  { id: 'microphone', label: 'Micrófono', icon: MicIcon },
+  { id: 'wifi', label: 'WiFi / Bluetooth', icon: WifiIcon },
+  { id: 'charging', label: 'Carga', icon: ChargingIcon },
+];
 
 // Popular device models for autocomplete
 const DEVICE_MODELS = [
@@ -215,8 +325,14 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filteredModels, setFilteredModels] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const inputRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const statusSectionRef = useRef(null);
+  const passwordSectionRef = useRef(null);
+  const functionalityCheckRef = useRef(null);
+
+  const isNative = isNativePlatform();
 
   // Estado del equipo: null = no seleccionado, 'on' = encendido, 'off' = apagado
   const deviceStatus = equipment.status || null;
@@ -224,6 +340,8 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   const hasPassword = equipment.hasPassword;
   // Contraseña del dispositivo
   const password = equipment.password || '';
+  // Checklist de funcionalidades (solo cuando está encendido)
+  const functionalityChecks = equipment.functionalityChecks || {};
 
   // Exponer método focus al padre
   useImperativeHandle(ref, () => ({
@@ -278,13 +396,29 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   };
 
   const handleSelectModel = (device) => {
+    console.log('[EquipmentSection] handleSelectModel:', device.model);
     setInputValue(device.model);
-    onChange({
-      ...equipment,
-      model: device.model,
-      brand: device.brand
-    });
-    setShowSuggestions(false);
+    setShowSuggestions(false); // Close dropdown FIRST
+    haptics.selection();
+
+    // Update equipment after a small delay to ensure dropdown is closed
+    setTimeout(() => {
+      onChange({
+        ...equipment,
+        model: device.model,
+        brand: device.brand
+      });
+      console.log('[EquipmentSection] Modelo actualizado:', device.model, device.brand);
+
+      // Auto-scroll to status section
+      setTimeout(() => {
+        console.log('[EquipmentSection] Intentando scroll a statusSection');
+        if (statusSectionRef.current) {
+          statusSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          console.log('[EquipmentSection] Scroll a statusSection ejecutado');
+        }
+      }, 150);
+    }, 50);
   };
 
   const handleInputFocus = () => {
@@ -292,19 +426,54 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   };
 
   const handleStatusChange = (status) => {
+    console.log('[EquipmentSection] handleStatusChange:', status);
+    haptics.selection();
+
+    // Update state
     onChange({ ...equipment, status });
+    console.log('[EquipmentSection] Estado actualizado a:', status);
+
+    // Auto-scroll to password section if 'on'
+    if (status === 'on') {
+      setTimeout(() => {
+        console.log('[EquipmentSection] Intentando scroll a passwordSection');
+        if (passwordSectionRef.current) {
+          passwordSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          console.log('[EquipmentSection] Scroll a passwordSection ejecutado');
+        } else {
+          console.log('[EquipmentSection] passwordSectionRef no está listo aún');
+        }
+      }, 200);
+    }
   };
 
   const handleHasPasswordChange = (value) => {
+    haptics.selection();
     onChange({
       ...equipment,
       hasPassword: value,
       password: value ? equipment.password : '' // Limpiar contraseña si no tiene
     });
+
+    // Auto-scroll to functionality checklist after answering password question
+    setTimeout(() => {
+      if (functionalityCheckRef.current) {
+        functionalityCheckRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }, 200);
   };
 
   const handlePasswordChange = (e) => {
     onChange({ ...equipment, password: e.target.value });
+  };
+
+  const handleFunctionalityCheck = (checkId, value) => {
+    haptics.selection();
+    const newChecks = {
+      ...functionalityChecks,
+      [checkId]: value
+    };
+    onChange({ ...equipment, functionalityChecks: newChecks });
   };
 
   // El modelo está seleccionado cuando tiene marca (viene del autocomplete)
@@ -315,6 +484,7 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
   const passwordFlowCompleted = deviceStatus === 'off' || hasPassword !== undefined;
   // Todo el equipo está completo
   const isCompleted = modelSelected && statusCompleted && passwordFlowCompleted;
+
 
   return (
     <div className="section">
@@ -432,13 +602,17 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
 
       {/* Flujo guiado: Estado del equipo (aparece después de seleccionar modelo) */}
       {modelSelected && (
-        <div className="fade-in" style={{
-          background: 'var(--bg)',
-          borderRadius: '12px',
-          padding: '16px',
-          marginBottom: '16px',
-          border: '1px solid var(--border-light)',
-        }}>
+        <div
+          ref={statusSectionRef}
+          className="fade-in"
+          style={{
+            background: 'var(--bg)',
+            borderRadius: '12px',
+            padding: '16px',
+            marginBottom: '16px',
+            border: '1px solid var(--border-light)',
+          }}
+        >
           {/* Pregunta 1: ¿Está encendido o apagado? */}
           <div style={{ marginBottom: deviceStatus === 'on' ? '16px' : 0 }}>
             <div style={{
@@ -515,10 +689,14 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
 
           {/* Pregunta 2: ¿Tiene contraseña? (solo si está encendido) */}
           {deviceStatus === 'on' && (
-            <div className="fade-in" style={{
-              borderTop: '1px solid var(--border-light)',
-              paddingTop: '16px',
-            }}>
+            <div
+              ref={passwordSectionRef}
+              className="fade-in"
+              style={{
+                borderTop: '1px solid var(--border-light)',
+                paddingTop: '16px',
+              }}
+            >
               <div style={{
                 fontSize: '14px',
                 fontWeight: '600',
@@ -625,6 +803,139 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
                   </button>
                 </div>
               )}
+
+              {/* Checklist de funcionalidades (aparece cuando el equipo está encendido) */}
+              <div
+                ref={functionalityCheckRef}
+                className="fade-in"
+                style={{
+                  borderTop: '1px solid var(--border-light)',
+                  paddingTop: '16px',
+                  marginTop: '16px',
+                }}
+              >
+              <div style={{
+                fontSize: '14px',
+                fontWeight: '600',
+                color: 'var(--text)',
+                marginBottom: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <span>Verificación de funciones</span>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: '500',
+                  color: 'var(--text-muted)',
+                  background: 'var(--border-light)',
+                  padding: '2px 8px',
+                  borderRadius: '10px',
+                }}>
+                  {Object.keys(functionalityChecks).length}/{FUNCTIONALITY_CHECKS.length}
+                </span>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '8px',
+              }}>
+                {FUNCTIONALITY_CHECKS.map((check) => {
+                  const IconComponent = check.icon;
+                  const checkValue = functionalityChecks[check.id];
+                  const isChecked = checkValue === true;
+                  const isFailed = checkValue === false;
+
+                  return (
+                    <div
+                      key={check.id}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px',
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontSize: '12px',
+                        color: 'var(--text-secondary)',
+                      }}>
+                        <IconComponent />
+                        <span style={{ lineHeight: '1.2' }}>{check.label}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => handleFunctionalityCheck(check.id, true)}
+                          disabled={disabled}
+                          style={{
+                            flex: 1,
+                            padding: '8px 4px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: isChecked
+                              ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                              : 'var(--card-bg)',
+                            border: isChecked ? 'none' : '1px solid var(--border)',
+                            borderRadius: '8px',
+                            color: isChecked ? 'white' : 'var(--text-muted)',
+                            cursor: disabled ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.15s',
+                            opacity: disabled ? 0.5 : 1,
+                          }}
+                        >
+                          OK
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFunctionalityCheck(check.id, false)}
+                          disabled={disabled}
+                          style={{
+                            flex: 1,
+                            padding: '8px 4px',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            background: isFailed
+                              ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'
+                              : 'var(--card-bg)',
+                            border: isFailed ? 'none' : '1px solid var(--border)',
+                            borderRadius: '8px',
+                            color: isFailed ? 'white' : 'var(--text-muted)',
+                            cursor: disabled ? 'not-allowed' : 'pointer',
+                            transition: 'all 0.15s',
+                            opacity: disabled ? 0.5 : 1,
+                          }}
+                        >
+                          Falla
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Resumen de fallas */}
+              {Object.values(functionalityChecks).some(v => v === false) && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '10px 12px',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  color: 'var(--error)',
+                }}>
+                  <strong>Fallas detectadas:</strong>{' '}
+                  {FUNCTIONALITY_CHECKS
+                    .filter(c => functionalityChecks[c.id] === false)
+                    .map(c => c.label)
+                    .join(', ')}
+                </div>
+              )}
+              </div>
             </div>
           )}
         </div>
@@ -632,15 +943,64 @@ const EquipmentSection = forwardRef(function EquipmentSection({ equipment, onCha
 
       <div className="form-group">
         <label htmlFor="serial">IMEI / Serial (opcional)</label>
-        <input
-          id="serial"
-          type="text"
-          placeholder="Opcional"
-          value={equipment.serial}
-          onChange={(e) => onChange({ ...equipment, serial: e.target.value })}
-          disabled={disabled}
-        />
-        <p className="form-hint">Solo si el cliente lo proporciona</p>
+        <div style={{ position: 'relative', display: 'flex', gap: '8px' }}>
+          <input
+            id="serial"
+            type="text"
+            placeholder={isNative ? "Escanea o escribe el IMEI" : "Escribe el IMEI"}
+            value={equipment.serial}
+            onChange={(e) => onChange({ ...equipment, serial: e.target.value })}
+            disabled={disabled || isScanning}
+            style={{ flex: 1 }}
+          />
+          {isNative && (
+            <button
+              type="button"
+              onClick={async () => {
+                if (isScanning || disabled) return;
+                setIsScanning(true);
+                try {
+                  const code = await scanOnce();
+                  if (code) {
+                    haptics.success();
+                    onChange({ ...equipment, serial: code });
+                  }
+                } catch (err) {
+                  console.error('Scan error:', err);
+                  haptics.error();
+                } finally {
+                  setIsScanning(false);
+                }
+              }}
+              disabled={disabled || isScanning}
+              style={{
+                width: '48px',
+                height: '48px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: isScanning ? 'var(--border)' : 'var(--text)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: disabled || isScanning ? 'not-allowed' : 'pointer',
+                flexShrink: 0,
+                opacity: disabled ? 0.5 : 1,
+              }}
+            >
+              {isScanning ? (
+                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '2px' }} />
+              ) : (
+                <ScanIcon />
+              )}
+            </button>
+          )}
+        </div>
+        <p className="form-hint">
+          {isNative
+            ? 'Escanea el código de barras de la caja o bandeja SIM'
+            : 'Solo si el cliente lo proporciona'}
+        </p>
       </div>
     </div>
   );

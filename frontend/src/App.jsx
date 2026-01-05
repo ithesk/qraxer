@@ -1,19 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from './services/api';
+import { pushService } from './services/pushNotifications';
 import Login from './components/Login';
-import Scanner from './components/Scanner';
-import RepairConfirm from './components/RepairConfirm';
-import Result from './components/Result';
-import ToastContainer from './components/Toast';
+import ToastContainer, { toast } from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
 import OfflineBanner from './components/OfflineBanner';
 import BottomNav from './components/BottomNav';
-import QuickCreator from './components/QuickCreator/QuickCreator';
-import History from './components/History';
-import ProductScanner from './components/ProductScanner';
-import InventoryCount from './components/InventoryCount';
+import Mo35OcrScreen from './components/Mo35OcrScreen';
+import ProfileScreen from './components/ProfileScreen';
 
-const APP_VERSION = '2.2.0-exp';
+// Lazy load heavy components
+const Scanner = lazy(() => import('./components/Scanner'));
+const RepairConfirm = lazy(() => import('./components/RepairConfirm'));
+const Result = lazy(() => import('./components/Result'));
+const QuickCreator = lazy(() => import('./components/QuickCreator/QuickCreator'));
+const ProductScanner = lazy(() => import('./components/ProductScanner'));
+const InventoryCountPage = lazy(() => import('./pages/InventoryCountPage'));
+
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0.0.0';
 
 // Scanner tab sub-views
 const SCANNER_VIEWS = {
@@ -21,6 +25,18 @@ const SCANNER_VIEWS = {
   CONFIRM: 'confirm',
   RESULT: 'result',
 };
+
+// Loading spinner for lazy components
+const LazySpinner = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '200px'
+  }}>
+    <div className="spinner spinner-dark" />
+  </div>
+);
 
 // Logo QR icon
 const QRLogoIcon = () => (
@@ -45,14 +61,32 @@ const LogoutIcon = () => (
   </svg>
 );
 
-// User avatar with initials
-const UserAvatar = ({ user }) => {
+// Notification bell icon
+const BellIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 7h18s-3 0-3-7" />
+    <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+  </svg>
+);
+
+// User avatar with initials or saved image
+const UserAvatar = ({ user, avatarUrl }) => {
   const getInitials = () => {
     if (user.name) {
       return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user.username ? user.username[0].toUpperCase() : 'U';
   };
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt="Avatar"
+        className="user-avatar user-avatar-img"
+      />
+    );
+  }
 
   return (
     <div className="user-avatar">
@@ -64,18 +98,32 @@ const UserAvatar = ({ user }) => {
 // Persistent storage keys
 const STORAGE_KEYS = {
   ACTIVE_TAB: 'qraxer_active_tab',
+  USER_AVATAR: 'qraxer_user_avatar',
 };
 
 export default function App() {
+  // Splash state
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
+
   // Auth state
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showProfileScreen, setShowProfileScreen] = useState(false);
+  const [showMo35Ocr, setShowMo35Ocr] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [userAvatar, setUserAvatar] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.USER_AVATAR) || null;
+    } catch {
+      return null;
+    }
+  });
 
   // Tab navigation - restore from localStorage
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return saved && ['scanner', 'creator', 'inventory', 'history'].includes(saved) ? saved : 'scanner';
+    return saved && ['scanner', 'creator', 'products', 'inventory', 'mo35'].includes(saved) ? saved : 'scanner';
   });
 
   // Scanner tab state
@@ -84,25 +132,125 @@ export default function App() {
   const [qrContent, setQrContent] = useState(null);
   const [result, setResult] = useState(null);
 
+  const handleProfile = () => {
+    toast.info('Perfil: pronto');
+  };
+
+  const handleSettings = () => {
+    toast.info('Ajustes: pronto');
+  };
+
+  const openProfileScreen = () => {
+    setShowProfileScreen(true);
+  };
+
+  const closeProfileScreen = () => {
+    setShowProfileScreen(false);
+    // Refresh avatar in case it was changed
+    try {
+      const savedAvatar = localStorage.getItem(STORAGE_KEYS.USER_AVATAR);
+      setUserAvatar(savedAvatar || null);
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Check auth and hide splash
+  useEffect(() => {
+    const initApp = async () => {
+      // Check authentication
+      if (api.isAuthenticated()) {
+        setUser(api.getUser());
+        setIsLoggedIn(true);
+
+        // Inicializar push si ya está logueado
+        if (pushService.isSupported()) {
+          pushService.initialize().catch(e =>
+            console.warn('[APP] Error inicializando push:', e)
+          );
+        }
+      }
+      setAuthChecked(true);
+
+      // Minimum splash time for smooth UX
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      // Fade out splash
+      setSplashFading(true);
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setShowSplash(false);
+    };
+
+    initApp();
+  }, []);
+
+  // Listener para notificaciones push recibidas
+  useEffect(() => {
+    if (!pushService.isSupported()) return;
+
+    const removeListener = pushService.addListener((type, data) => {
+      console.log('[APP] Push notification:', type, data);
+
+      if (type === 'received') {
+        // Notificación recibida mientras la app está en foreground
+        const notification = data;
+        const title = notification.title || 'Nueva notificación';
+        const body = notification.body || '';
+
+        // Mostrar toast con la notificación
+        toast.show(`${title}: ${body}`, 'info', 5000);
+      }
+
+      if (type === 'action') {
+        // Usuario tocó la notificación
+        const actionData = data.notification?.data;
+        console.log('[APP] Push action data:', actionData);
+
+        // Si es un check-in, podríamos navegar a la reparación
+        if (actionData?.type === 'checkin' && actionData?.repairCode) {
+          toast.show(`Check-in: ${actionData.repairCode}`, 'info', 3000);
+          // Aquí podríamos abrir la reparación directamente
+        }
+      }
+    });
+
+    return () => {
+      removeListener();
+    };
+  }, []);
+
   // Persist active tab
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
   }, [activeTab]);
 
-  useEffect(() => {
-    if (api.isAuthenticated()) {
-      setUser(api.getUser());
-      setIsLoggedIn(true);
-    }
-  }, []);
-
-  const handleLogin = (userData) => {
+  const handleLogin = async (userData) => {
     setUser(userData);
     setIsLoggedIn(true);
+
+    // Inicializar push notifications después del login
+    if (pushService.isSupported()) {
+      try {
+        const initialized = await pushService.initialize();
+        if (initialized) {
+          console.log('[APP] Push notifications inicializadas');
+        }
+      } catch (e) {
+        console.warn('[APP] Error inicializando push:', e);
+      }
+    }
   };
 
   const handleLogout = async () => {
-    setShowUserMenu(false);
+    // Desregistrar token de push antes de logout
+    if (pushService.isSupported()) {
+      try {
+        await pushService.unregisterToken();
+      } catch (e) {
+        console.warn('[APP] Error desregistrando push:', e);
+      }
+    }
+
     await api.logout();
     setUser(null);
     setScanData(null);
@@ -113,8 +261,16 @@ export default function App() {
     setScannerView(SCANNER_VIEWS.SCANNER);
   };
 
-  const toggleUserMenu = () => {
-    setShowUserMenu(!showUserMenu);
+  const handleNotifications = () => {
+    toast.show('Notificaciones pronto', 'warning', 2000);
+  };
+
+  const openMo35Ocr = () => {
+    setShowMo35Ocr(true);
+  };
+
+  const closeMo35Ocr = () => {
+    setShowMo35Ocr(false);
   };
 
   // Scanner tab handlers
@@ -125,10 +281,8 @@ export default function App() {
   };
 
   const handleUpdate = (updateResult) => {
-    console.log('[App] handleUpdate recibido:', updateResult);
     setResult(updateResult);
     setScannerView(SCANNER_VIEWS.RESULT);
-    console.log('[App] Vista cambiada a RESULT');
   };
 
   const handleNewScan = () => {
@@ -152,102 +306,73 @@ export default function App() {
     }
   };
 
+  // Show splash screen
+  if (showSplash) {
+    return <SplashScreen fading={splashFading} />;
+  }
+
   return (
     <>
       <ToastContainer />
       <OfflineBanner />
-      <header className="header">
-        <div className="header-content">
-          {/* Left: Logo and App Name */}
-          <div className="header-brand">
-            <div className="header-logo" style={{ position: 'relative' }}>
-              <QRLogoIcon />
-              <ConnectionDot />
-            </div>
-            <div className="header-titles">
-              <h1 className="header-title">QRaxer</h1>
-              <p className="header-tagline">Escáner de Reparaciones</p>
-            </div>
-          </div>
-
-          {/* Right: User Info with Dropdown */}
-          {user && (
-            <div style={{ position: 'relative' }}>
-              <div
-                className="header-user"
-                onClick={toggleUserMenu}
-                style={{ cursor: 'pointer' }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && toggleUserMenu()}
+      {!showProfileScreen && (
+        <header className="header">
+          <div className="header-content">
+            {/* Minimal header: app icon, notifications, avatar */}
+            <div className="header-minimal">
+              <button
+                className="header-logo header-logo-button"
+                onClick={openMo35Ocr}
+                aria-label="Abrir OCR mo35"
+                style={{ position: 'relative' }}
               >
-                <UserAvatar user={user} />
-                <span className="header-user-name">{user.name || user.username}</span>
-              </div>
-
-              {/* Dropdown Menu */}
-              {showUserMenu && (
-                <>
-                  {/* Backdrop to close menu */}
+                <QRLogoIcon />
+                <ConnectionDot />
+              </button>
+              {user && (
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    className="btn-icon btn-secondary header-notification-button"
+                    onClick={handleNotifications}
+                    aria-label="Notificaciones"
+                  >
+                    <BellIcon />
+                  </button>
                   <div
-                    onClick={() => setShowUserMenu(false)}
-                    style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      zIndex: 99
-                    }}
-                  />
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '8px',
-                    background: 'white',
-                    borderRadius: 'var(--radius-md)',
-                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-                    border: '1px solid var(--border-light)',
-                    minWidth: '160px',
-                    zIndex: 100,
-                    overflow: 'hidden'
-                  }}>
-                    <button
-                      onClick={handleLogout}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        width: '100%',
-                        padding: '12px 16px',
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        color: 'var(--error)',
-                        cursor: 'pointer',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <LogoutIcon />
-                      Cerrar sesion
-                    </button>
+                    className="header-user"
+                    onClick={openProfileScreen}
+                    style={{ cursor: 'pointer' }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => e.key === 'Enter' && openProfileScreen()}
+                  >
+                    <UserAvatar user={user} avatarUrl={userAvatar} />
                   </div>
-                </>
+                </div>
               )}
             </div>
-          )}
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
-      <main className="container main-content">
+      <main className={showProfileScreen ? 'main-content profile-screen-main' : 'container main-content'}>
         {!isLoggedIn && (
           <Login onSuccess={handleLogin} />
         )}
 
-        {isLoggedIn && activeTab === 'scanner' && (
-          <>
+        {isLoggedIn && showProfileScreen && (
+          <ProfileScreen
+            user={user}
+            version={APP_VERSION}
+            onBack={closeProfileScreen}
+            onProfile={handleProfile}
+            onSettings={handleSettings}
+            onLogout={handleLogout}
+          />
+        )}
+
+        {isLoggedIn && !showProfileScreen && activeTab === 'scanner' && (
+          <Suspense fallback={<LazySpinner />}>
             {scannerView === SCANNER_VIEWS.SCANNER && (
               <Scanner onScan={handleScan} />
             )}
@@ -264,27 +389,37 @@ export default function App() {
             {scannerView === SCANNER_VIEWS.RESULT && result && (
               <Result result={result} onNewScan={handleNewScan} />
             )}
-          </>
+          </Suspense>
         )}
 
-        {isLoggedIn && activeTab === 'creator' && (
-          <QuickCreator />
+        {isLoggedIn && !showProfileScreen && activeTab === 'creator' && (
+          <Suspense fallback={<LazySpinner />}>
+            <QuickCreator />
+          </Suspense>
         )}
 
-        {isLoggedIn && activeTab === 'inventory' && (
-          <InventoryCount />
+        {isLoggedIn && !showProfileScreen && activeTab === 'products' && (
+          <Suspense fallback={<LazySpinner />}>
+            <ProductScanner />
+          </Suspense>
         )}
 
-        {isLoggedIn && activeTab === 'history' && (
-          <History />
+        {isLoggedIn && !showProfileScreen && activeTab === 'inventory' && (
+          <Suspense fallback={<LazySpinner />}>
+            <InventoryCountPage />
+          </Suspense>
+        )}
+
+        {isLoggedIn && !showProfileScreen && activeTab === 'mo35' && (
+          <Mo35OcrScreen onClose={() => setActiveTab('scanner')} fullScreen={false} />
         )}
       </main>
 
-      {isLoggedIn && (
+      {isLoggedIn && !showProfileScreen && (
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       )}
 
-      <footer style={{
+      <footer className="app-footer" style={{
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
@@ -297,7 +432,84 @@ export default function App() {
         <span>v{APP_VERSION}</span>
         <VersionUpdateDot currentVersion={APP_VERSION} />
       </footer>
+
+      {showMo35Ocr && (
+        <Mo35OcrScreen onClose={closeMo35Ocr} />
+      )}
     </>
+  );
+}
+
+// Splash Screen Component
+function SplashScreen({ fading }) {
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+      zIndex: 9999,
+      opacity: fading ? 0 : 1,
+      transition: 'opacity 0.3s ease-out'
+    }}>
+      {/* Logo */}
+      <div style={{
+        width: '80px',
+        height: '80px',
+        background: 'white',
+        borderRadius: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: '20px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+      }}>
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="5" y="5" width="3" height="3" fill="#2563eb" stroke="none" />
+          <rect x="16" y="5" width="3" height="3" fill="#2563eb" stroke="none" />
+          <rect x="5" y="16" width="3" height="3" fill="#2563eb" stroke="none" />
+          <rect x="14" y="14" width="3" height="3" />
+          <rect x="18" y="18" width="3" height="3" />
+        </svg>
+      </div>
+
+      {/* App Name */}
+      <h1 style={{
+        color: 'white',
+        fontSize: '28px',
+        fontWeight: '700',
+        margin: '0 0 8px 0',
+        letterSpacing: '-0.5px'
+      }}>
+        QRaxer
+      </h1>
+
+      {/* Tagline */}
+      <p style={{
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: '14px',
+        margin: 0
+      }}>
+        Escáner de Reparaciones
+      </p>
+
+      {/* Loading indicator */}
+      <div style={{
+        marginTop: '40px',
+        width: '24px',
+        height: '24px',
+        border: '3px solid rgba(255,255,255,0.3)',
+        borderTopColor: 'white',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+    </div>
   );
 }
 
@@ -317,24 +529,16 @@ function VersionUpdateDot({ currentVersion }) {
   }, [currentVersion]);
 
   const checkForUpdates = async () => {
-    console.log('[VersionCheck] Verificando actualizaciones...');
     try {
       const response = await fetch(`/version.json?t=${Date.now()}`, { cache: 'no-store' });
-      console.log('[VersionCheck] Response status:', response.status);
       if (response.ok) {
         const data = await response.json();
-        console.log('[VersionCheck] Versión en servidor:', data.version, '- Versión actual:', currentVersion);
         if (data.version && data.version !== currentVersion) {
-          console.log('[VersionCheck] Nueva versión disponible!');
           setUpdateAvailable(true);
-        } else {
-          console.log('[VersionCheck] Ya tienes la última versión');
         }
-      } else {
-        console.log('[VersionCheck] Error en respuesta:', response.statusText);
       }
     } catch (e) {
-      console.error('[VersionCheck] Error:', e.message);
+      // Silent fail
     }
   };
 

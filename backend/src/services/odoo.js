@@ -201,7 +201,7 @@ class OdooClient {
     const repairs = await this.execute('repair.order', 'search_read', [
       [['name', '=', code]],
     ], {
-      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'description'],
+      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'user_id', 'description'],
       limit: 1,
     }, userId);
 
@@ -333,6 +333,72 @@ class OdooClient {
   }
 
   /**
+   * Buscar producto por nombre (modelo de equipo)
+   */
+  async searchProduct(name, userId) {
+    log('Buscando producto:', name);
+
+    const products = await this.execute('product.product', 'search_read', [
+      [['name', '=ilike', name]],
+    ], {
+      fields: ['id', 'name', 'default_code'],
+      limit: 1,
+    }, userId);
+
+    if (products && products.length > 0) {
+      log('Producto encontrado:', products[0].id, products[0].name);
+      return products[0];
+    }
+
+    log('Producto no encontrado');
+    return null;
+  }
+
+  /**
+   * Crear producto (modelo de equipo) en Odoo
+   */
+  async createProduct(name, brand, userId) {
+    log('Creando producto:', name, '- Marca:', brand);
+
+    const productData = {
+      name: name,
+      default_code: brand ? `${brand.toUpperCase().slice(0, 3)}-${name.replace(/\s+/g, '-').toUpperCase()}` : null,
+      type: 'consu', // Consumible (no requiere inventario)
+      categ_id: 1, // Categoría por defecto
+    };
+
+    const productId = await this.execute('product.product', 'create', [productData], {}, userId);
+
+    log('Producto creado con ID:', productId);
+
+    return { id: productId, name: name };
+  }
+
+  /**
+   * Buscar o crear producto (modelo de equipo)
+   * Evita duplicados buscando primero
+   */
+  async findOrCreateProduct(modelName, brand, userId) {
+    log('findOrCreateProduct:', modelName);
+
+    if (!modelName) {
+      log('No se proporcionó nombre de modelo');
+      return null;
+    }
+
+    // Buscar primero
+    let product = await this.searchProduct(modelName, userId);
+
+    if (product) {
+      return product;
+    }
+
+    // No existe, crear
+    product = await this.createProduct(modelName, brand, userId);
+    return product;
+  }
+
+  /**
    * Crear nueva orden de reparación
    * Campos obligatorios según XML de Odoo:
    * - partner_id, imei, lead_source, description, branch_id, schedule_date_str, estimated_budget
@@ -439,6 +505,7 @@ class OdooClient {
     }
 
     log('repairData a enviar:', JSON.stringify(repairData, null, 2));
+
     // Crear la orden
     const repairId = await this.execute('repair.order', 'create', [repairData], {}, userId);
 
@@ -545,12 +612,13 @@ class OdooClient {
 
   /**
    * Obtener sucursales (branches) disponibles
+   * Nota: branch_id en repair.order es Many2one a repair.location
    */
   async getBranches(userId) {
-    log('Obteniendo sucursales...');
+    log('Obteniendo sucursales (repair.location)...');
 
     try {
-      const branches = await this.execute('res.branch', 'search_read', [
+      const branches = await this.execute('repair.location', 'search_read', [
         [],
       ], {
         fields: ['id', 'name'],

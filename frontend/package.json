@@ -1,14 +1,27 @@
 {
   "name": "qraxer-pwa",
   "private": true,
-  "version": "2.0.0-experimental",
+  "version": "2.2.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ios:build": "npm run build && npx cap copy ios",
+    "ios:open": "npx cap open ios",
+    "ios:sync": "npx cap sync ios"
   },
   "dependencies": {
+    "@capacitor-mlkit/barcode-scanning": "^8.0.0",
+    "@capacitor/camera": "^8.0.0",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/push-notifications": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
+    "@capgo/capacitor-native-biometric": "^8.0.3",
+    "@jcesarmobile/capacitor-ocr": "^0.2.0",
     "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.3",
     "html5-qrcode": "^2.3.8",

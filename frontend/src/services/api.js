@@ -2,6 +2,13 @@
 // En desarrollo, usa el backend local en puerto 3001
 const API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
+// DEBUG: Log API configuration
+console.log('[API] ========== CONFIG ==========');
+console.log('[API] VITE_API_URL:', import.meta.env.VITE_API_URL);
+console.log('[API] PROD mode:', import.meta.env.PROD);
+console.log('[API] Final API_URL:', API_URL);
+console.log('[API] ==============================');
+
 class ApiService {
   constructor() {
     this.accessToken = null;
@@ -274,79 +281,58 @@ class ApiService {
     return data;
   }
 
-  // === Inventory Methods ===
+  // === Check-in Methods ===
 
   /**
-   * Get available stock locations
+   * Register customer check-in (customer arrived to pick up)
    */
-  async getInventoryLocations() {
-    const response = await this.request('/inventory/locations', {
-      method: 'GET',
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Error al obtener ubicaciones');
-    }
-
-    return data.locations;
-  }
-
-  /**
-   * Get default stock location
-   */
-  async getDefaultLocation() {
-    const response = await this.request('/inventory/default-location', {
-      method: 'GET',
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || 'Error al obtener ubicación por defecto');
-    }
-
-    return data.location;
-  }
-
-  /**
-   * Submit inventory count
-   * @param {Array} items - [{productId, barcode, productName, countedQty}]
-   * @param {number|null} locationId - Location ID (null for default)
-   * @param {string} notes - Optional notes
-   */
-  async submitInventoryCount(items, locationId = null, notes = '') {
-    const response = await this.request('/inventory/count', {
+  async checkin(qrContent) {
+    const response = await this.request('/repair/checkin', {
       method: 'POST',
-      body: JSON.stringify({ items, locationId, notes }),
+      body: JSON.stringify({ qrContent }),
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Error al enviar conteo');
+      throw new Error(data.error || 'Error al registrar check-in');
     }
 
     return data;
   }
 
   /**
-   * Get product stock by ID
+   * Get pending check-in notifications for current technician
    */
-  async getProductStock(productId, locationId = null) {
-    const url = locationId
-      ? `/inventory/product/${productId}/stock?locationId=${locationId}`
-      : `/inventory/product/${productId}/stock`;
-
-    const response = await this.request(url, {
+  async getPendingCheckins() {
+    const response = await this.request('/repair/checkin/pending', {
       method: 'GET',
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Error al obtener stock');
+      throw new Error(data.error || 'Error al obtener notificaciones');
+    }
+
+    return data;
+  }
+
+  /**
+   * Respond to a check-in notification
+   * @param {string} checkinId - ID of the check-in notification
+   * @param {string} response - 'coming' | 'ready' | 'need_time'
+   */
+  async respondToCheckin(checkinId, responseType) {
+    const response = await this.request('/repair/checkin/respond', {
+      method: 'POST',
+      body: JSON.stringify({ checkinId, response: responseType }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al responder');
     }
 
     return data;
@@ -369,21 +355,67 @@ class ApiService {
         healthUrl = API_URL.replace('/api', '/health');
       }
 
+      console.log('[API] checkConnection - healthUrl:', healthUrl);
+
       const response = await fetch(healthUrl, {
         method: 'GET',
         cache: 'no-store',
       });
       const latency = Date.now() - start;
+      console.log('[API] checkConnection - response:', response.status, response.ok, 'latency:', latency);
       return {
         online: response.ok,
         latency,
       };
     } catch (e) {
+      console.error('[API] checkConnection - ERROR:', e.message, e);
       return {
         online: false,
         latency: 0,
       };
     }
+  }
+
+  // === Inventory Methods ===
+
+  /**
+   * Get inventory locations from Odoo
+   * @returns {Promise<{locations: Array<{id: number, name: string, complete_name: string}>}>}
+   */
+  async getInventoryLocations() {
+    const response = await this.request('/inventory/locations', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener ubicaciones');
+    }
+
+    return data;
+  }
+
+  /**
+   * Submit inventory count
+   * @param {Array<{barcode: string, product_id: number, quantity: number, product_name: string}>} items
+   * @param {number} locationId - Stock location ID
+   * @param {string} notes - Optional notes
+   * @returns {Promise<{success: boolean, adjustment_id: number}>}
+   */
+  async submitInventoryCount(items, locationId, notes = '') {
+    const response = await this.request('/inventory/count', {
+      method: 'POST',
+      body: JSON.stringify({ items, locationId, notes }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al enviar conteo');
+    }
+
+    return data;
   }
 }
 
