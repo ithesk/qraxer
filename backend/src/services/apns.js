@@ -28,16 +28,18 @@ async function initializeApns() {
     // Importación dinámica para no requerir la dependencia si no se usa
     const apn = await import('@parse/node-apn');
 
+    const isProduction = config.apns.production;
+
     apnProvider = new apn.default.Provider({
       token: {
         key: config.apns.keyPath,
         keyId: config.apns.keyId,
         teamId: config.apns.teamId,
       },
-      production: config.nodeEnv === 'production',
+      production: isProduction,
     });
 
-    logger.info('[APNS] Cliente inicializado correctamente');
+    logger.info(`[APNS] Cliente inicializado - Entorno: ${isProduction ? 'PRODUCTION' : 'SANDBOX'}`);
     return true;
   } catch (error) {
     logger.warn('[APNS] No se pudo inicializar:', error.message);

@@ -70,6 +70,9 @@ export const config = {
     keyId: optional('APNS_KEY_ID', ''),
     teamId: optional('APNS_TEAM_ID', ''),
     bundleId: optional('APNS_BUNDLE_ID', 'com.qraxer.app'),
+    // APNS_PRODUCTION: 'true' para producción, 'false' para sandbox
+    // Por defecto usa sandbox (development) para desarrollo con Xcode
+    production: optional('APNS_PRODUCTION', 'false') === 'true',
   },
 };
 
