@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from './services/api';
+import { pushService } from './services/pushNotifications';
 import Login from './components/Login';
 import ToastContainer, { toast } from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
@@ -68,14 +69,24 @@ const BellIcon = () => (
   </svg>
 );
 
-// User avatar with initials
-const UserAvatar = ({ user }) => {
+// User avatar with initials or saved image
+const UserAvatar = ({ user, avatarUrl }) => {
   const getInitials = () => {
     if (user.name) {
       return user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
     }
     return user.username ? user.username[0].toUpperCase() : 'U';
   };
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt="Avatar"
+        className="user-avatar user-avatar-img"
+      />
+    );
+  }
 
   return (
     <div className="user-avatar">
@@ -87,6 +98,7 @@ const UserAvatar = ({ user }) => {
 // Persistent storage keys
 const STORAGE_KEYS = {
   ACTIVE_TAB: 'qraxer_active_tab',
+  USER_AVATAR: 'qraxer_user_avatar',
 };
 
 export default function App() {
@@ -100,6 +112,13 @@ export default function App() {
   const [showProfileScreen, setShowProfileScreen] = useState(false);
   const [showMo35Ocr, setShowMo35Ocr] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
+  const [userAvatar, setUserAvatar] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.USER_AVATAR) || null;
+    } catch {
+      return null;
+    }
+  });
 
   // Tab navigation - restore from localStorage
   const [activeTab, setActiveTab] = useState(() => {
@@ -127,6 +146,13 @@ export default function App() {
 
   const closeProfileScreen = () => {
     setShowProfileScreen(false);
+    // Refresh avatar in case it was changed
+    try {
+      const savedAvatar = localStorage.getItem(STORAGE_KEYS.USER_AVATAR);
+      setUserAvatar(savedAvatar || null);
+    } catch {
+      // Ignore
+    }
   };
 
   // Check auth and hide splash
@@ -136,6 +162,13 @@ export default function App() {
       if (api.isAuthenticated()) {
         setUser(api.getUser());
         setIsLoggedIn(true);
+
+        // Inicializar push si ya está logueado
+        if (pushService.isSupported()) {
+          pushService.initialize().catch(e =>
+            console.warn('[APP] Error inicializando push:', e)
+          );
+        }
       }
       setAuthChecked(true);
 
@@ -156,13 +189,33 @@ export default function App() {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
   }, [activeTab]);
 
-  const handleLogin = (userData) => {
+  const handleLogin = async (userData) => {
     setUser(userData);
     setIsLoggedIn(true);
+
+    // Inicializar push notifications después del login
+    if (pushService.isSupported()) {
+      try {
+        const initialized = await pushService.initialize();
+        if (initialized) {
+          console.log('[APP] Push notifications inicializadas');
+        }
+      } catch (e) {
+        console.warn('[APP] Error inicializando push:', e);
+      }
+    }
   };
 
   const handleLogout = async () => {
-    setShowUserMenu(false);
+    // Desregistrar token de push antes de logout
+    if (pushService.isSupported()) {
+      try {
+        await pushService.unregisterToken();
+      } catch (e) {
+        console.warn('[APP] Error desregistrando push:', e);
+      }
+    }
+
     await api.logout();
     setUser(null);
     setScanData(null);
@@ -175,10 +228,6 @@ export default function App() {
 
   const handleNotifications = () => {
     toast.show('Notificaciones pronto', 'warning', 2000);
-  };
-
-  const toggleUserMenu = () => {
-    setShowUserMenu(!showUserMenu);
   };
 
   const openMo35Ocr = () => {
@@ -262,7 +311,7 @@ export default function App() {
                     tabIndex={0}
                     onKeyDown={(e) => e.key === 'Enter' && openProfileScreen()}
                   >
-                    <UserAvatar user={user} />
+                    <UserAvatar user={user} avatarUrl={userAvatar} />
                   </div>
                 </div>
               )}
