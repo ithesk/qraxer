@@ -57,8 +57,8 @@ class QRService {
         return { valid: false, error: 'QR sin firma no permitido en produccion' };
       }
 
-      // Validar formato básico (alfanumérico)
-      if (!/^[A-Za-z0-9\-_]+$/.test(trimmed)) {
+      // Validar formato básico (alfanumérico + / para códigos como RO/00123)
+      if (!/^[A-Za-z0-9\-_\/]+$/.test(trimmed)) {
         return { valid: false, error: 'Formato de codigo invalido' };
       }
 
