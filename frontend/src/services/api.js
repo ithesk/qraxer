@@ -193,11 +193,17 @@ class ApiService {
 
   /**
    * Create repair order
+   * @param {Object} orderData - Order data
+   * @param {string} idempotencyKey - Optional key to prevent duplicate orders
    */
-  async createRepairOrder(orderData) {
+  async createRepairOrder(orderData, idempotencyKey = null) {
+    const payload = idempotencyKey
+      ? { ...orderData, idempotencyKey }
+      : orderData;
+
     const response = await this.request('/repair/create', {
       method: 'POST',
-      body: JSON.stringify(orderData),
+      body: JSON.stringify(payload),
     });
 
     const data = await response.json();
@@ -207,6 +213,18 @@ class ApiService {
     }
 
     return data;
+  }
+
+  /**
+   * Check if API is reachable
+   */
+  async isOnline() {
+    try {
+      const result = await this.checkConnection();
+      return result.online;
+    } catch {
+      return false;
+    }
   }
 
   /**
