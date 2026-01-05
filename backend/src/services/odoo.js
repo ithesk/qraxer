@@ -518,8 +518,11 @@ class OdooClient {
     if (data.equipment?.screw !== undefined) repairData.screw = data.equipment.screw;
     if (data.equipment?.sim !== undefined) repairData.sim = data.equipment.sim;
 
-    // Tipo de reparación (smartphone por defecto)
-    repairData.typerepair = data.equipment?.type || 'smartphone';
+    // Tipo de reparación - solo enviar si viene explícitamente
+    // Odoo usará su valor por defecto si no se envía
+    if (data.equipment?.typerepair) {
+      repairData.typerepair = data.equipment.typerepair;
+    }
 
     // Nota adicional en descripción si existe
     if (data.note) {

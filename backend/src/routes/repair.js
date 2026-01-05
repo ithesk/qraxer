@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { odooClient } from '../services/odoo.js';
 import { qrService } from '../services/qr.js';
+import { idempotencyService } from '../services/idempotency.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
 
@@ -188,7 +189,10 @@ router.post('/generate-qr', async (req, res, next) => {
  * POST /api/repair/create
  * Crear nueva orden de reparación (Quick Creator)
  * Campos requeridos: clientId, equipment, problems, branchId
- * Campos opcionales: note, leadSource, deliveryDate, estimatedBudget
+ * Campos opcionales: note, leadSource, deliveryDate, estimatedBudget, idempotencyKey
+ *
+ * idempotencyKey: Si se proporciona, verifica si ya existe una orden con esa key
+ * para prevenir duplicados cuando el cliente reintenta.
  */
 router.post('/create', async (req, res, next) => {
   try {
@@ -201,9 +205,34 @@ router.post('/create', async (req, res, next) => {
       leadSource,
       deliveryDate,
       estimatedBudget,
+      idempotencyKey,
     } = req.body;
     const userId = req.user.userId;
     const userName = req.user.name || req.user.username;
+
+    // IDEMPOTENCY CHECK: Si hay key, verificar si ya existe la orden
+    if (idempotencyKey) {
+      const existing = idempotencyService.check(idempotencyKey, userId);
+      if (existing) {
+        logger.debug('Orden duplicada detectada, retornando existente:', existing.repairName);
+
+        // Obtener datos completos de la orden existente
+        const existingRepair = await odooClient.getRepairById(existing.repairId, userId);
+
+        return res.json({
+          success: true,
+          duplicate: true,
+          repair: {
+            id: existing.repairId,
+            name: existing.repairName,
+            state: existingRepair?.state || 'draft',
+            partner: existingRepair?.partner_id ? existingRepair.partner_id[1] : null,
+            branch: existingRepair?.branch_id ? existingRepair.branch_id[1] : null,
+            description: existingRepair?.description || '',
+          },
+        });
+      }
+    }
 
     // Validaciones
     if (!clientId) {
@@ -216,7 +245,7 @@ router.post('/create', async (req, res, next) => {
       throw new AppError('Sucursal requerida', 400);
     }
 
-    logger.debug('Creando orden:', { clientId, branchId, model: equipment?.model });
+    logger.debug('Creando orden:', { clientId, branchId, model: equipment?.model, idempotencyKey });
 
     const repair = await odooClient.createRepairOrder(
       {
@@ -233,8 +262,14 @@ router.post('/create', async (req, res, next) => {
       userName
     );
 
+    // IDEMPOTENCY SAVE: Guardar key para futuras verificaciones
+    if (idempotencyKey) {
+      idempotencyService.save(idempotencyKey, repair.id, repair.name, userId);
+    }
+
     res.json({
       success: true,
+      duplicate: false,
       repair: {
         id: repair.id,
         name: repair.name,
@@ -467,6 +502,126 @@ router.post('/checkin/respond', async (req, res, next) => {
       success: true,
       message: 'Respuesta enviada',
       notification,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/repair/:id/note
+ * Agregar nota al chatter de una orden de reparación
+ */
+router.post('/:id/note', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { note } = req.body;
+    const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    if (!note || !note.trim()) {
+      throw new AppError('Nota requerida', 400);
+    }
+
+    const repairId = parseInt(id, 10);
+    if (isNaN(repairId)) {
+      throw new AppError('ID de reparación inválido', 400);
+    }
+
+    // Verificar que la reparación existe
+    const repair = await odooClient.getRepairById(repairId, userId);
+    if (!repair) {
+      throw new AppError('Reparación no encontrada', 404);
+    }
+
+    // Crear mensaje para el chatter
+    const message = `
+<p><strong>📝 Nota agregada via QRaxer</strong></p>
+<p>${note.trim().replace(/\n/g, '<br/>')}</p>
+<p style="color: #666; font-size: 12px;">Por: ${userName} - ${new Date().toLocaleString('es-DO')}</p>
+    `.trim();
+
+    await odooClient.execute('repair.order', 'message_post', [repairId], {
+      body: message,
+      message_type: 'comment',
+    }, userId);
+
+    logger.debug('Nota agregada a reparación:', repairId);
+
+    res.json({
+      success: true,
+      message: 'Nota agregada correctamente',
+      repairId,
+      repairName: repair.name,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/repair/:id/photo
+ * Subir foto al chatter de una orden de reparación
+ * Espera: { image: "base64string", filename: "foto.jpg", description?: "descripción" }
+ */
+router.post('/:id/photo', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { image, filename, description } = req.body;
+    const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    if (!image) {
+      throw new AppError('Imagen requerida', 400);
+    }
+
+    const repairId = parseInt(id, 10);
+    if (isNaN(repairId)) {
+      throw new AppError('ID de reparación inválido', 400);
+    }
+
+    // Verificar que la reparación existe
+    const repair = await odooClient.getRepairById(repairId, userId);
+    if (!repair) {
+      throw new AppError('Reparación no encontrada', 404);
+    }
+
+    // Limpiar el base64 (quitar el prefijo data:image/xxx;base64, si existe)
+    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+
+    // Determinar el nombre del archivo
+    const finalFilename = filename || `foto_${Date.now()}.jpg`;
+
+    // Crear attachment en Odoo
+    const attachmentId = await odooClient.execute('ir.attachment', 'create', [{
+      name: finalFilename,
+      type: 'binary',
+      datas: base64Data,
+      res_model: 'repair.order',
+      res_id: repairId,
+    }], {}, userId);
+
+    logger.debug('Attachment creado:', attachmentId);
+
+    // Crear mensaje en el chatter con la foto
+    const message = `
+<p><strong>📷 Foto agregada via QRaxer</strong></p>
+${description ? `<p>${description}</p>` : ''}
+<p style="color: #666; font-size: 12px;">Por: ${userName} - ${new Date().toLocaleString('es-DO')}</p>
+    `.trim();
+
+    await odooClient.execute('repair.order', 'message_post', [repairId], {
+      body: message,
+      message_type: 'comment',
+      attachment_ids: [[4, attachmentId]],  // Comando Many2many para agregar
+    }, userId);
+
+    res.json({
+      success: true,
+      message: 'Foto subida correctamente',
+      repairId,
+      repairName: repair.name,
+      attachmentId,
     });
   } catch (error) {
     next(error);
