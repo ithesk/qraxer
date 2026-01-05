@@ -184,6 +184,41 @@ export default function App() {
     initApp();
   }, []);
 
+  // Listener para notificaciones push recibidas
+  useEffect(() => {
+    if (!pushService.isSupported()) return;
+
+    const removeListener = pushService.addListener((type, data) => {
+      console.log('[APP] Push notification:', type, data);
+
+      if (type === 'received') {
+        // Notificación recibida mientras la app está en foreground
+        const notification = data;
+        const title = notification.title || 'Nueva notificación';
+        const body = notification.body || '';
+
+        // Mostrar toast con la notificación
+        toast.show(`${title}: ${body}`, 'info', 5000);
+      }
+
+      if (type === 'action') {
+        // Usuario tocó la notificación
+        const actionData = data.notification?.data;
+        console.log('[APP] Push action data:', actionData);
+
+        // Si es un check-in, podríamos navegar a la reparación
+        if (actionData?.type === 'checkin' && actionData?.repairCode) {
+          toast.show(`Check-in: ${actionData.repairCode}`, 'info', 3000);
+          // Aquí podríamos abrir la reparación directamente
+        }
+      }
+    });
+
+    return () => {
+      removeListener();
+    };
+  }, []);
+
   // Persist active tab
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
