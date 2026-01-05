@@ -68,6 +68,23 @@ const CameraIcon = () => (
   </svg>
 );
 
+// Search icon
+const SearchIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+
+// Clear icon for search
+const ClearIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="15" y1="9" x2="9" y2="15" />
+    <line x1="9" y1="9" x2="15" y2="15" />
+  </svg>
+);
+
 // State labels and colors
 const STATE_CONFIG = {
   draft: { label: 'Presupuesto', bg: '#f1f5f9', color: '#475569' },
@@ -176,6 +193,7 @@ export default function History({ initialSelectedRepairId = null }) {
   const [selectedRepair, setSelectedRepair] = useState(null);
   const [copiedOrderId, setCopiedOrderId] = useState(null);
   const [didApplyInitialSelection, setDidApplyInitialSelection] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Modal states
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -284,16 +302,76 @@ export default function History({ initialSelectedRepairId = null }) {
     setSelectedRepair(null);
   };
 
+  // Filter repairs based on search query
+  const filteredRepairs = repairs.filter((repair) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    const searchFields = [
+      repair.name,
+      repair.partner,
+      repair.product,
+      repair.description,
+      repair.partnerPhone,
+      STATE_CONFIG[repair.state]?.label,
+    ];
+    return searchFields.some((field) => field?.toLowerCase().includes(query));
+  });
+
   return (
     <div className="fade-in">
-      <h2 style={{
-        fontSize: '22px',
-        fontWeight: '700',
-        marginBottom: '20px',
-        color: 'var(--text)',
+      {/* Search bar */}
+      <div style={{
+        position: 'relative',
+        marginBottom: '16px',
       }}>
-        Historial
-      </h2>
+        <div style={{
+          position: 'absolute',
+          left: '14px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          color: 'var(--text-muted)',
+          pointerEvents: 'none',
+        }}>
+          <SearchIcon />
+        </div>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, cliente, equipo..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '12px 40px 12px 44px',
+            fontSize: '15px',
+            border: '1px solid var(--border)',
+            borderRadius: '12px',
+            background: 'var(--card-bg)',
+            color: 'var(--text)',
+            outline: 'none',
+          }}
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              padding: '4px',
+              cursor: 'pointer',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <ClearIcon />
+          </button>
+        )}
+      </div>
 
       {/* Filter tabs */}
       <div className="filter-tabs">
@@ -323,7 +401,7 @@ export default function History({ initialSelectedRepairId = null }) {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state - no repairs loaded */}
       {!isLoading && !error && repairs.length === 0 && (
         <div style={{
           textAlign: 'center',
@@ -334,10 +412,21 @@ export default function History({ initialSelectedRepairId = null }) {
         </div>
       )}
 
+      {/* Empty state - no search results */}
+      {!isLoading && !error && repairs.length > 0 && filteredRepairs.length === 0 && (
+        <div style={{
+          textAlign: 'center',
+          padding: '40px 20px',
+          color: 'var(--text-secondary)',
+        }}>
+          <p>No se encontraron resultados para "{searchQuery}"</p>
+        </div>
+      )}
+
       {/* Repairs list */}
-      {!isLoading && !error && repairs.length > 0 && (
+      {!isLoading && !error && filteredRepairs.length > 0 && (
         <div className="history-list">
-          {repairs.map((repair) => {
+          {filteredRepairs.map((repair) => {
             const stateConfig = STATE_CONFIG[repair.state] || { label: repair.state, bg: '#f1f5f9', color: '#475569' };
             return (
               <div
