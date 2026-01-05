@@ -240,84 +240,54 @@ class OdooInventoryClient {
 
   /**
    * Crear ajuste de inventario para un producto
-   * Usa el contexto inventory_mode=True para bypass de restricciones de seguridad en stock.quant
+   * Usa stock.change.product.qty wizard para Odoo 12
+   * Referencia: https://www.odoo.com/forum/help-1/inventory-stock-adjustment-in-odoo-12-155262
    */
   async createInventoryAdjustment(productId, locationId, countedQty, userName) {
-    log('Creando ajuste de inventario:', { productId, locationId, countedQty });
+    log('Creando ajuste de inventario (Odoo 12):', { productId, locationId, countedQty });
 
-    // Contexto especial para permitir modificación de stock.quant
-    // inventory_mode=True es requerido en Odoo 14+ para escribir en stock.quant
-    const inventoryContext = {
-      inventory_mode: true,
-      default_location_id: locationId,
-    };
-
-    // Buscar si ya existe un stock.quant para este producto/ubicación
-    const existingQuants = await this.execute('stock.quant', 'search_read', [
-      [
-        ['product_id', '=', productId],
-        ['location_id', '=', locationId],
-      ],
+    // Obtener product_tmpl_id necesario para el wizard
+    const products = await this.execute('product.product', 'search_read', [
+      [['id', '=', productId]],
     ], {
-      fields: ['id', 'quantity', 'inventory_quantity'],
+      fields: ['product_tmpl_id'],
       limit: 1,
-    }, inventoryContext);
+    });
 
-    let quantId;
-
-    if (existingQuants && existingQuants.length > 0) {
-      // Actualizar el quant existente usando contexto inventory_mode
-      quantId = existingQuants[0].id;
-      log('Actualizando quant existente:', quantId, 'con contexto inventory_mode');
-
-      await this.execute('stock.quant', 'write', [
-        [quantId],
-        {
-          inventory_quantity: countedQty,
-        },
-      ], {}, inventoryContext);
-    } else {
-      // Crear nuevo quant con contexto inventory_mode
-      log('Creando nuevo quant con contexto inventory_mode');
-
-      quantId = await this.execute('stock.quant', 'create', [{
-        product_id: productId,
-        location_id: locationId,
-        inventory_quantity: countedQty,
-      }], {}, inventoryContext);
+    if (!products || products.length === 0) {
+      throw new AppError(`Producto ${productId} no encontrado`, 404);
     }
 
-    log('Quant ID:', quantId);
-    return quantId;
+    const productTmplId = products[0].product_tmpl_id[0];
+    log('Product template ID:', productTmplId);
+
+    // Usar el wizard stock.change.product.qty (método estándar en Odoo 12)
+    // Este wizard tiene los permisos correctos para modificar inventario
+    const wizardId = await this.execute('stock.change.product.qty', 'create', [{
+      product_id: productId,
+      product_tmpl_id: productTmplId,
+      new_quantity: countedQty,
+      location_id: locationId,
+    }]);
+
+    log('Wizard creado:', wizardId);
+
+    // Ejecutar el wizard para aplicar el cambio
+    await this.execute('stock.change.product.qty', 'change_product_qty', [[wizardId]]);
+
+    log('Cantidad actualizada via wizard stock.change.product.qty');
+    return wizardId;
   }
 
   /**
    * Aplicar los ajustes de inventario
-   * Llama a action_apply_inventory en los quants
+   * En Odoo 12 con stock.change.product.qty, los ajustes se aplican automáticamente
+   * Este método solo confirma que se procesaron correctamente
    */
-  async applyInventoryAdjustments(quantIds) {
-    log('Aplicando ajustes de inventario:', quantIds);
-
-    if (!quantIds || quantIds.length === 0) {
-      log('No hay ajustes que aplicar');
-      return { applied: 0 };
-    }
-
-    // Contexto especial para aplicar inventario
-    const inventoryContext = {
-      inventory_mode: true,
-    };
-
-    try {
-      // Llamar action_apply_inventory en los quants
-      await this.execute('stock.quant', 'action_apply_inventory', [quantIds], {}, inventoryContext);
-
-      log('Ajustes aplicados correctamente');
-      return { applied: quantIds.length };
-    } catch (error) {
-      logError('Error aplicando ajustes:', error.message);
-      throw new AppError(`Error aplicando ajustes de inventario: ${error.message}`, 500);
-    }
+  async applyInventoryAdjustments(wizardIds) {
+    log('Ajustes de inventario ya aplicados via wizard:', wizardIds);
+    // Los ajustes ya fueron aplicados por change_product_qty en createInventoryAdjustment
+    return { applied: wizardIds.length };
   }
 
   /**

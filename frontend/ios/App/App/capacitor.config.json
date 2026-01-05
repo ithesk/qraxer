@@ -1,0 +1,35 @@
+{
+	"appId": "com.qraxer.app",
+	"appName": "QRAxer",
+	"webDir": "dist",
+	"ios": {
+		"contentInset": "never",
+		"backgroundColor": "#f8fafc"
+	},
+	"plugins": {
+		"BarcodeScanner": {
+			"enableGoogleMLKitBarcodeScan": false
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"backgroundColor": "#ffffff",
+			"overlaysWebView": true
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	},
+	"packageClassList": [
+		"BarcodeScannerPlugin",
+		"CAPCameraPlugin",
+		"HapticsPlugin",
+		"PushNotificationsPlugin",
+		"StatusBarPlugin",
+		"NativeBiometricPlugin",
+		"OcrPlugin"
+	]
+}
