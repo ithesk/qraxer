@@ -11,8 +11,9 @@ import BottomNav from './components/BottomNav';
 import QuickCreator from './components/QuickCreator/QuickCreator';
 import History from './components/History';
 import ProductScanner from './components/ProductScanner';
+import InventoryCount from './components/InventoryCount';
 
-const APP_VERSION = '2.1.7-exp';
+const APP_VERSION = '2.2.0-exp';
 
 // Scanner tab sub-views
 const SCANNER_VIEWS = {
@@ -74,7 +75,7 @@ export default function App() {
   // Tab navigation - restore from localStorage
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return saved && ['scanner', 'creator', 'products', 'history'].includes(saved) ? saved : 'scanner';
+    return saved && ['scanner', 'creator', 'inventory', 'history'].includes(saved) ? saved : 'scanner';
   });
 
   // Scanner tab state
@@ -270,8 +271,8 @@ export default function App() {
           <QuickCreator />
         )}
 
-        {isLoggedIn && activeTab === 'products' && (
-          <ProductScanner />
+        {isLoggedIn && activeTab === 'inventory' && (
+          <InventoryCount />
         )}
 
         {isLoggedIn && activeTab === 'history' && (

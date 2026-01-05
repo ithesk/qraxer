@@ -256,6 +256,84 @@ class ApiService {
     return data;
   }
 
+  // === Inventory Methods ===
+
+  /**
+   * Get available stock locations
+   */
+  async getInventoryLocations() {
+    const response = await this.request('/inventory/locations', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener ubicaciones');
+    }
+
+    return data.locations;
+  }
+
+  /**
+   * Get default stock location
+   */
+  async getDefaultLocation() {
+    const response = await this.request('/inventory/default-location', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener ubicación por defecto');
+    }
+
+    return data.location;
+  }
+
+  /**
+   * Submit inventory count
+   * @param {Array} items - [{productId, barcode, productName, countedQty}]
+   * @param {number|null} locationId - Location ID (null for default)
+   * @param {string} notes - Optional notes
+   */
+  async submitInventoryCount(items, locationId = null, notes = '') {
+    const response = await this.request('/inventory/count', {
+      method: 'POST',
+      body: JSON.stringify({ items, locationId, notes }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al enviar conteo');
+    }
+
+    return data;
+  }
+
+  /**
+   * Get product stock by ID
+   */
+  async getProductStock(productId, locationId = null) {
+    const url = locationId
+      ? `/inventory/product/${productId}/stock?locationId=${locationId}`
+      : `/inventory/product/${productId}/stock`;
+
+    const response = await this.request(url, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al obtener stock');
+    }
+
+    return data;
+  }
+
   /**
    * Check API connection status
    * @returns {Promise<{online: boolean, latency: number}>}
