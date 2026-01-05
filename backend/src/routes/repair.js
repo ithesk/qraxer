@@ -623,7 +623,7 @@ router.post('/:id/photo', async (req, res, next) => {
     const finalFilename = filename || `foto_${Date.now()}.jpg`;
 
     // Crear attachment en Odoo
-    const attachmentId = await odooClient.execute('ir.attachment', 'create', [{
+    const attachmentResult = await odooClient.execute('ir.attachment', 'create', [{
       name: finalFilename,
       type: 'binary',
       datas: base64Data,
@@ -631,19 +631,35 @@ router.post('/:id/photo', async (req, res, next) => {
       res_id: repairId,
     }], {}, userId);
 
-    logger.debug('Attachment creado:', attachmentId);
+    // Odoo create puede retornar diferentes formatos - normalizar a entero
+    logger.debug('Attachment result raw:', JSON.stringify(attachmentResult));
+    let attachmentId = attachmentResult;
+    // Si es array, tomar primer elemento recursivamente
+    while (Array.isArray(attachmentId)) {
+      attachmentId = attachmentId[0];
+    }
+    // Asegurar que es entero
+    attachmentId = parseInt(attachmentId, 10);
+    logger.debug('Attachment ID normalizado:', attachmentId);
+
+    if (!attachmentId || isNaN(attachmentId)) {
+      throw new AppError('Error al crear attachment en Odoo', 500);
+    }
 
     // Crear mensaje en el chatter con la foto
+    // El attachment ya está asociado a repair.order via res_model/res_id
+    // Solo necesitamos crear el mensaje, el attachment se mostrará automáticamente
     const message = `
 <p><strong>📷 Foto agregada via QRaxer</strong></p>
 ${description ? `<p>${description}</p>` : ''}
 <p style="color: #666; font-size: 12px;">Por: ${userName} - ${new Date().toLocaleString('es-DO')}</p>
     `.trim();
 
+    // NO pasar attachment_ids - el attachment ya está vinculado al record
+    // message_post con attachment_ids causa el error "unhashable type: list"
     await odooClient.execute('repair.order', 'message_post', [repairId], {
       body: message,
       message_type: 'comment',
-      attachment_ids: [[4, attachmentId]],  // Comando Many2many para agregar
     }, userId);
 
     res.json({
