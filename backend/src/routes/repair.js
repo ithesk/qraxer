@@ -675,6 +675,62 @@ ${description ? `<p>${description}</p>` : ''}
 });
 
 /**
+ * POST /api/repair/:id/state
+ * Actualizar estado de reparación por ID (para uso desde History, sin validación QR)
+ */
+router.post('/:id/state', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { newState, note } = req.body;
+    const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    if (!newState) {
+      throw new AppError('Nuevo estado requerido', 400);
+    }
+
+    const repairId = parseInt(id, 10);
+    if (isNaN(repairId)) {
+      throw new AppError('ID de reparación inválido', 400);
+    }
+
+    // Verificar que la reparación existe
+    const repair = await odooClient.getRepairById(repairId, userId);
+    if (!repair) {
+      throw new AppError('Reparación no encontrada', 404);
+    }
+
+    // Validar que el estado sea válido
+    const validStates = await odooClient.getRepairStates(userId);
+    const isValidState = validStates.some(s => s.value === newState);
+
+    if (!isValidState) {
+      throw new AppError('Estado invalido', 400);
+    }
+
+    // Actualizar estado con auditoría
+    const result = await odooClient.updateRepairState(
+      repairId,
+      newState,
+      note || null,
+      userId,
+      userName
+    );
+
+    res.json({
+      success: true,
+      message: 'Estado actualizado correctamente',
+      repairId: result.repairId,
+      repairName: result.repairName,
+      oldState: result.oldState,
+      newState: result.newState,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/repair/:code
  * Obtener información de una reparación por código
  * NOTE: This route MUST be LAST because :code matches any string
