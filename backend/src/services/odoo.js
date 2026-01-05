@@ -185,25 +185,22 @@ class OdooClient {
     const userId = typeof userIdOrInfo === 'object' ? userIdOrInfo.userId : userIdOrInfo;
     const userInfo = typeof userIdOrInfo === 'object' ? userIdOrInfo : null;
 
-    console.log(`[ODOO] Execute: ${model}.${method} (user: ${userId})`);
+    log(`Execute: ${model}.${method} (user: ${userId})`);
 
     let session = userSessions.get(userId);
-    console.log('[ODOO] Session exists:', !!session, session?.sessionId ? 'has sessionId' : 'no sessionId');
 
     // Si no hay sesión pero tenemos credenciales, re-autenticar
     if ((!session || !session.sessionId) && userInfo?.username && userInfo?.password) {
-      console.log('[ODOO] Sesión no encontrada, re-autenticando con:', userInfo.username);
+      log('Sesión no encontrada, re-autenticando...');
       try {
         await this.authenticate(userInfo.username, userInfo.password);
         session = userSessions.get(userId);
-        console.log('[ODOO] Re-auth exitoso, session:', !!session);
       } catch (authError) {
-        console.error('[ODOO ERROR] Error re-autenticando:', authError.message);
+        logError('Error re-autenticando:', authError.message);
       }
     }
 
     if (!session || !session.sessionId) {
-      console.error('[ODOO ERROR] No session after re-auth attempt');
       throw new AppError('Sesión de usuario no encontrada. Inicie sesión nuevamente.', 401);
     }
 
@@ -641,8 +638,7 @@ class OdooClient {
    * @param {number|Object} userIdOrInfo - userId o objeto con credenciales para re-auth
    */
   async getBranches(userIdOrInfo) {
-    console.log('[ODOO] Obteniendo sucursales (repair.location)...');
-    console.log('[ODOO] userIdOrInfo:', typeof userIdOrInfo === 'object' ? 'object with userId: ' + userIdOrInfo?.userId : userIdOrInfo);
+    log('Obteniendo sucursales (repair.location)...');
 
     try {
       const branches = await this.execute('repair.location', 'search_read', [
@@ -652,10 +648,10 @@ class OdooClient {
         order: 'name asc',
       }, userIdOrInfo);
 
-      console.log('[ODOO] Sucursales encontradas:', branches?.length || 0);
+      log('Sucursales encontradas:', branches?.length || 0);
       return branches || [];
     } catch (e) {
-      console.error('[ODOO ERROR] Error obteniendo sucursales:', e.message);
+      logError('Error obteniendo sucursales:', e.message);
       return [];
     }
   }
