@@ -10,13 +10,25 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
+ * Helper para obtener userInfo completo del request
+ * Esto permite que Odoo re-autentique si la sesión expiró
+ */
+function getUserInfo(req) {
+  return {
+    userId: req.user.userId,
+    username: req.user.username,
+    password: req.user.odooPassword,
+  };
+}
+
+/**
  * POST /api/clients/search
  * Buscar cliente por teléfono
  */
 router.post('/search', async (req, res, next) => {
   try {
     const { phone } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
 
     if (!phone) {
       throw new AppError('Teléfono requerido', 400);
@@ -24,7 +36,7 @@ router.post('/search', async (req, res, next) => {
 
     logger.debug('Buscando cliente');
 
-    const partners = await odooClient.searchPartnerByPhone(phone, userId);
+    const partners = await odooClient.searchPartnerByPhone(phone, userInfo);
 
     if (partners && partners.length > 0) {
       res.json({
@@ -54,7 +66,7 @@ router.post('/search', async (req, res, next) => {
 router.post('/create', async (req, res, next) => {
   try {
     const { name, phone, email } = req.body;
-    const userId = req.user.userId;
+    const userInfo = getUserInfo(req);
 
     if (!name) {
       throw new AppError('Nombre requerido', 400);
@@ -62,7 +74,7 @@ router.post('/create', async (req, res, next) => {
 
     logger.debug('Creando cliente:', name);
 
-    const partner = await odooClient.createPartner({ name, phone, email }, userId);
+    const partner = await odooClient.createPartner({ name, phone, email }, userInfo);
 
     res.json({
       success: true,
