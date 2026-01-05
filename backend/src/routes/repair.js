@@ -731,6 +731,45 @@ router.post('/:id/state', async (req, res, next) => {
 });
 
 /**
+ * GET /api/repair/by-id/:id
+ * Obtener información de una reparación por ID numérico
+ * Para uso desde History cuando se selecciona una reparación reciente
+ */
+router.get('/by-id/:id', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const repairId = parseInt(id, 10);
+    if (isNaN(repairId)) {
+      throw new AppError('ID de reparación inválido', 400);
+    }
+
+    const repair = await odooClient.getRepairById(repairId, userId);
+
+    if (!repair) {
+      throw new AppError('Reparación no encontrada', 404);
+    }
+
+    res.json({
+      repair: {
+        id: repair.id,
+        name: repair.name,
+        state: repair.state,
+        partner: repair.partner_id ? repair.partner_id[1] : null,
+        partnerPhone: repair.partner_phone || null,
+        product: repair.product_id ? repair.product_id[1] : null,
+        assignedUser: repair.user_id ? repair.user_id[1] : null,
+        description: repair.description || '',
+        createdAt: repair.create_date,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/repair/:code
  * Obtener información de una reparación por código
  * NOTE: This route MUST be LAST because :code matches any string
