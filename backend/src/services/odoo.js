@@ -523,9 +523,10 @@ class OdooClient {
       repairData.typerepair = data.equipment.typerepair;
     }
 
-    // Lead source - solo enviar si viene explícitamente
+    // Lead source - solo enviar si viene con un valor válido
+    // Ignorar 'walk_in' ya que es un valor legacy inválido en Odoo
     // Odoo usará su valor por defecto si no se envía
-    if (data.leadSource) {
+    if (data.leadSource && data.leadSource !== 'walk_in') {
       repairData.lead_source = data.leadSource;
     }
 
