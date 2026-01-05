@@ -133,6 +133,21 @@ router.get('/states', async (req, res, next) => {
 });
 
 /**
+ * GET /api/repair/config
+ * Obtener configuración para el formulario de reparación
+ * Incluye: branches, leadSources, defaults
+ */
+router.get('/config', async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const config = await odooClient.getRepairConfig(userId);
+    res.json(config);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * POST /api/repair/generate-qr
  * Generar QR firmado para una reparación
  */
@@ -168,21 +183,48 @@ router.post('/generate-qr', async (req, res, next) => {
 /**
  * POST /api/repair/create
  * Crear nueva orden de reparación (Quick Creator)
+ * Campos requeridos: clientId, equipment, problems, branchId
+ * Campos opcionales: note, leadSource, deliveryDate, estimatedBudget
  */
 router.post('/create', async (req, res, next) => {
   try {
-    const { clientId, equipment, problems, note } = req.body;
+    const {
+      clientId,
+      equipment,
+      problems,
+      note,
+      branchId,
+      leadSource,
+      deliveryDate,
+      estimatedBudget,
+    } = req.body;
     const userId = req.user.userId;
     const userName = req.user.name || req.user.username;
 
+    // Validaciones
     if (!clientId) {
       throw new AppError('Cliente requerido', 400);
     }
+    if (!equipment?.model) {
+      throw new AppError('Modelo de equipo requerido', 400);
+    }
+    if (!branchId) {
+      throw new AppError('Sucursal requerida', 400);
+    }
 
-    logger.debug('Creando orden para cliente:', clientId);
+    logger.debug('Creando orden:', { clientId, branchId, model: equipment?.model });
 
     const repair = await odooClient.createRepairOrder(
-      { clientId, equipment, problems, note },
+      {
+        clientId,
+        equipment,
+        problems,
+        note,
+        branchId,
+        leadSource,
+        deliveryDate,
+        estimatedBudget,
+      },
       userId,
       userName
     );
@@ -194,6 +236,7 @@ router.post('/create', async (req, res, next) => {
         name: repair.name,
         state: repair.state,
         partner: repair.partner,
+        branch: repair.branch,
         description: repair.description,
       },
     });
