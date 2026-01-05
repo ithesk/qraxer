@@ -497,7 +497,7 @@ export function PhotoModal({ isOpen, onClose, repairId, repairName, onSuccess })
  * State Change Modal - Change repair state
  * Filters out unused states and translates to Spanish
  */
-export function StateModal({ isOpen, onClose, repairName, currentState, onSuccess }) {
+export function StateModal({ isOpen, onClose, repairId, repairName, currentState, onSuccess }) {
   const [availableStates, setAvailableStates] = useState([]);
   const [loadingStates, setLoadingStates] = useState(false);
   const [changingState, setChangingState] = useState(false);
@@ -545,11 +545,17 @@ export function StateModal({ isOpen, onClose, repairName, currentState, onSucces
   if (!isOpen) return null;
 
   const handleChangeState = async (newState) => {
-    if (!repairName || changingState) return;
+    if ((!repairId && !repairName) || changingState) return;
 
     setChangingState(true);
     try {
-      await api.updateState(`REP:${repairName}`, newState, null);
+      // If we have repairId, use the direct endpoint (bypasses QR validation)
+      // Otherwise use QR-based endpoint with repairName
+      if (repairId) {
+        await api.updateRepairState(repairId, newState, null);
+      } else {
+        await api.updateState(repairName, newState, null);
+      }
       haptics.success();
       toast.success('Estado actualizado');
       setSelectedState(newState);

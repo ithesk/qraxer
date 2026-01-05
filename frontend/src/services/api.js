@@ -149,22 +149,21 @@ class ApiService {
   }
 
   /**
-   * Update repair state by repair ID (for OrderConfirmation)
+   * Update repair state by repair ID (for History screen, bypasses QR validation)
    */
   async updateRepairState(repairId, newState, note = null) {
-    // Get the repair code first to use with updateState
-    const response = await this.request(`/repair/by-id/${repairId}`, {
-      method: 'GET',
+    const response = await this.request(`/repair/${repairId}/state`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newState, note }),
     });
 
     if (!response.ok) {
-      throw new Error('Error al obtener la reparación');
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.message || 'Error al actualizar estado');
     }
 
-    const repair = await response.json();
-
-    // Use the existing updateState with the QR content format
-    return this.updateState(`REP:${repair.name}`, newState, note);
+    return response.json();
   }
 
   /**
