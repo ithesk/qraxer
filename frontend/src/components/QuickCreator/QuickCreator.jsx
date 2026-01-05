@@ -75,14 +75,14 @@ export default function QuickCreator() {
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        // DEBUG: Clear cache to force fresh fetch
-        console.log('[QuickCreator] DEBUG: Clearing cache...');
+        // DEBUG: Clear cache temporarily to force fresh fetch
+        console.log('[QuickCreator] DEBUG: Clearing cache to fetch fresh config...');
         localStorage.removeItem('repairConfig');
 
         // Fetch from API
         const data = await api.getRepairConfig();
 
-        // DEBUG: Log lead sources from API
+        // DEBUG: Log the full config to see leadSources
         console.log('[QuickCreator] ====== DEBUG LEAD SOURCES ======');
         console.log('[QuickCreator] Full config:', JSON.stringify(data, null, 2));
         console.log('[QuickCreator] leadSources:', data.leadSources);
@@ -227,132 +227,44 @@ export default function QuickCreator() {
   // Show form
   return (
     <div className="fade-in">
-      {/* Header con sucursal integrada */}
+      {/* Header con icono */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
-        justifyContent: 'space-between',
         gap: '12px',
         marginBottom: '20px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            flexShrink: 0,
-          }}>
-            <ClipboardIcon />
-          </div>
-          <div>
-            <h2 style={{
-              fontSize: '20px',
-              fontWeight: '700',
-              color: 'var(--text)',
-              margin: 0,
-            }}>
-              Nueva Orden
-            </h2>
-            <p style={{
-              fontSize: '13px',
-              color: 'var(--text-muted)',
-              margin: 0,
-            }}>
-              Completa los 3 pasos
-            </p>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Sucursal Banner - Siempre visible arriba */}
-      {!configLoading && config?.branches?.length > 0 && (
         <div style={{
+          width: '44px',
+          height: '44px',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(29, 78, 216, 0.1) 100%)',
-          borderRadius: '12px',
-          marginBottom: '16px',
-          border: '1px solid rgba(37, 99, 235, 0.2)',
+          justifyContent: 'center',
+          color: 'white',
+          flexShrink: 0,
         }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-          }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-            }}>
-              <BranchIcon />
-            </div>
-            <div>
-              <div style={{
-                fontSize: '11px',
-                fontWeight: '500',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-              }}>
-                Sucursal
-              </div>
-              <div style={{
-                fontSize: '16px',
-                fontWeight: '700',
-                color: 'var(--text)',
-              }}>
-                {config.branches.find(b => b.id === branchId)?.name || 'Seleccionar'}
-              </div>
-            </div>
-          </div>
-          <div style={{ position: 'relative' }}>
-            <select
-              value={branchId || ''}
-              onChange={(e) => setBranchId(Number(e.target.value))}
-              style={{
-                padding: '8px 32px 8px 12px',
-                fontSize: '14px',
-                fontWeight: '600',
-                color: '#2563eb',
-                background: 'white',
-                border: '1px solid rgba(37, 99, 235, 0.3)',
-                borderRadius: '8px',
-                appearance: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              {config.branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-            <div style={{
-              position: 'absolute',
-              right: '10px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none',
-              color: '#2563eb',
-            }}>
-              <ChevronDownIcon />
-            </div>
-          </div>
+          <ClipboardIcon />
         </div>
-      )}
+        <div>
+          <h2 style={{
+            fontSize: '20px',
+            fontWeight: '700',
+            color: 'var(--text)',
+            margin: 0,
+          }}>
+            Nueva Orden
+          </h2>
+          <p style={{
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+            margin: 0,
+          }}>
+            Completa los 3 pasos
+          </p>
+        </div>
+      </div>
 
       {/* Sección 1: Cliente */}
       <div className="card" style={{ padding: '20px', marginBottom: '12px' }}>
@@ -401,7 +313,7 @@ export default function QuickCreator() {
         />
       </div>
 
-      {/* Sección 4: Fecha de Entrega */}
+      {/* Sección 4: Sucursal y Fecha */}
       {!configLoading && config && (
         <div className="card" style={{
           padding: '16px 20px',
@@ -410,44 +322,109 @@ export default function QuickCreator() {
         }}>
           <div style={{
             display: 'flex',
-            alignItems: 'center',
             gap: '12px',
+            flexWrap: 'wrap',
           }}>
-            <CalendarIcon />
-            <label style={{
-              fontSize: '14px',
-              fontWeight: '600',
-              color: 'var(--text)',
-            }}>
-              Fecha de entrega
-            </label>
-            <div style={{ flex: 1 }} />
-            <input
-              type="date"
-              value={deliveryDate}
-              onChange={(e) => setDeliveryDate(e.target.value)}
-              disabled={!client || !equipment.model || problems.length === 0}
-              style={{
-                padding: '8px 12px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: 'var(--text)',
-                background: 'var(--bg-secondary)',
-                border: '1px solid var(--border)',
-                borderRadius: '10px',
-              }}
-            />
-          </div>
-          {deliveryDate && (
-            <div style={{
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              marginTop: '8px',
-              textAlign: 'right',
-            }}>
-              {formatDateForDisplay(deliveryDate)}
+            {/* Branch Selector */}
+            {config.branches?.length > 0 && (
+              <div style={{ flex: '1', minWidth: '140px' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: 'var(--text-muted)',
+                  marginBottom: '6px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                }}>
+                  <BranchIcon />
+                  Sucursal
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    value={branchId || ''}
+                    onChange={(e) => setBranchId(Number(e.target.value))}
+                    disabled={!client || !equipment.model || problems.length === 0}
+                    style={{
+                      width: '100%',
+                      padding: '10px 32px 10px 12px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: 'var(--text)',
+                      background: 'var(--bg-secondary)',
+                      border: '1px solid var(--border)',
+                      borderRadius: '10px',
+                      appearance: 'none',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {config.branches.map((branch) => (
+                      <option key={branch.id} value={branch.id}>
+                        {branch.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    pointerEvents: 'none',
+                    color: 'var(--text-muted)',
+                  }}>
+                    <ChevronDownIcon />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Delivery Date */}
+            <div style={{ flex: '1', minWidth: '140px' }}>
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '12px',
+                fontWeight: '600',
+                color: 'var(--text-muted)',
+                marginBottom: '6px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px',
+              }}>
+                <CalendarIcon />
+                Entrega
+              </label>
+              <input
+                type="date"
+                value={deliveryDate}
+                onChange={(e) => setDeliveryDate(e.target.value)}
+                disabled={!client || !equipment.model || problems.length === 0}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: 'var(--text)',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '10px',
+                  boxSizing: 'border-box',
+                }}
+              />
+              {deliveryDate && (
+                <div style={{
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  marginTop: '4px',
+                  paddingLeft: '2px',
+                }}>
+                  {formatDateForDisplay(deliveryDate)}
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
