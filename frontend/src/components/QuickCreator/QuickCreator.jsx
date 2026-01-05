@@ -77,20 +77,24 @@ export default function QuickCreator() {
         // Get user preferences (saved branch)
         const userPrefs = getUserPreferences();
 
-        // DEBUG: Clear cache to force fresh fetch
-        console.log('[QuickCreator] DEBUG: Clearing cache to fetch fresh config...');
-        localStorage.removeItem('repairConfig');
+        // Try to get from cache first
+        const cached = localStorage.getItem('repairConfig');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          // Check if cache is less than 1 hour old
+          if (parsed.timestamp && Date.now() - parsed.timestamp < 3600000) {
+            setConfig(parsed.data);
+            // Use saved branch preference, or first branch as fallback
+            setBranchId(userPrefs.defaultBranchId || parsed.data.branches?.[0]?.id || null);
+            setLeadSource(parsed.data.defaults?.leadSource || '');
+            setDeliveryDate(parsed.data.defaults?.deliveryDate || '');
+            setConfigLoading(false);
+            return;
+          }
+        }
 
         // Fetch from API
         const data = await api.getRepairConfig();
-
-        // DEBUG: Log the full config to see leadSources
-        console.log('[QuickCreator] ====== DEBUG LEAD SOURCES ======');
-        console.log('[QuickCreator] Full config:', JSON.stringify(data, null, 2));
-        console.log('[QuickCreator] leadSources:', data.leadSources);
-        console.log('[QuickCreator] defaults.leadSource:', data.defaults?.leadSource);
-        console.log('[QuickCreator] ================================');
-
         setConfig(data);
 
         // Set defaults - use saved branch preference, or first branch as fallback

@@ -1,6 +1,8 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { api } from './services/api';
 import { pushService } from './services/pushNotifications';
+import { orderQueue } from './services/orderQueue';
+import { queueProcessor } from './services/queueProcessor';
 import Login from './components/Login';
 import ToastContainer, { toast } from './components/Toast';
 import ConnectionDot from './components/ConnectionDot';
@@ -8,6 +10,7 @@ import OfflineBanner from './components/OfflineBanner';
 import BottomNav from './components/BottomNav';
 import Mo35OcrScreen from './components/Mo35OcrScreen';
 import ProfileScreen from './components/ProfileScreen';
+import SettingsScreen from './components/SettingsScreen';
 
 // Lazy load heavy components
 const Scanner = lazy(() => import('./components/Scanner'));
@@ -110,6 +113,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [showProfileScreen, setShowProfileScreen] = useState(false);
+  const [showSettingsScreen, setShowSettingsScreen] = useState(false);
   const [showMo35Ocr, setShowMo35Ocr] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [userAvatar, setUserAvatar] = useState(() => {
@@ -137,7 +141,12 @@ export default function App() {
   };
 
   const handleSettings = () => {
-    toast.info('Ajustes: pronto');
+    setShowProfileScreen(false);
+    setShowSettingsScreen(true);
+  };
+
+  const closeSettingsScreen = () => {
+    setShowSettingsScreen(false);
   };
 
   const openProfileScreen = () => {
@@ -158,6 +167,17 @@ export default function App() {
   // Check auth and hide splash
   useEffect(() => {
     const initApp = async () => {
+      // Initialize order queue (IndexedDB)
+      try {
+        await orderQueue.init();
+        console.log('[APP] Order queue initialized');
+
+        // Reset any orders stuck in 'syncing' state (from app crash/close)
+        await orderQueue.resetStuckOrders();
+      } catch (e) {
+        console.error('[APP] Error initializing order queue:', e);
+      }
+
       // Check authentication
       if (api.isAuthenticated()) {
         setUser(api.getUser());
@@ -168,6 +188,21 @@ export default function App() {
           pushService.initialize().catch(e =>
             console.warn('[APP] Error inicializando push:', e)
           );
+        }
+
+        // Try to sync any pending orders
+        try {
+          const isOnline = await api.isOnline();
+          if (isOnline) {
+            console.log('[APP] Online, checking pending orders...');
+            queueProcessor.processQueue().then(result => {
+              if (result.synced > 0) {
+                console.log('[APP] Synced', result.synced, 'pending orders');
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[APP] Error checking pending orders:', e);
         }
       }
       setAuthChecked(true);
@@ -315,7 +350,7 @@ export default function App() {
     <>
       <ToastContainer />
       <OfflineBanner />
-      {!showProfileScreen && (
+      {!showProfileScreen && !showSettingsScreen && (
         <header className="header">
           <div className="header-content">
             {/* Minimal header: app icon, notifications, avatar */}
@@ -355,7 +390,7 @@ export default function App() {
         </header>
       )}
 
-      <main className={showProfileScreen ? 'main-content profile-screen-main' : 'container main-content'}>
+      <main className={(showProfileScreen || showSettingsScreen) ? 'main-content profile-screen-main' : 'container main-content'}>
         {!isLoggedIn && (
           <Login onSuccess={handleLogin} />
         )}
@@ -371,7 +406,11 @@ export default function App() {
           />
         )}
 
-        {isLoggedIn && !showProfileScreen && activeTab === 'scanner' && (
+        {isLoggedIn && showSettingsScreen && (
+          <SettingsScreen onBack={closeSettingsScreen} />
+        )}
+
+        {isLoggedIn && !showProfileScreen && !showSettingsScreen && activeTab === 'scanner' && (
           <Suspense fallback={<LazySpinner />}>
             {scannerView === SCANNER_VIEWS.SCANNER && (
               <Scanner onScan={handleScan} />
@@ -392,30 +431,30 @@ export default function App() {
           </Suspense>
         )}
 
-        {isLoggedIn && !showProfileScreen && activeTab === 'creator' && (
+        {isLoggedIn && !showProfileScreen && !showSettingsScreen && activeTab === 'creator' && (
           <Suspense fallback={<LazySpinner />}>
             <QuickCreator />
           </Suspense>
         )}
 
-        {isLoggedIn && !showProfileScreen && activeTab === 'products' && (
+        {isLoggedIn && !showProfileScreen && !showSettingsScreen && activeTab === 'products' && (
           <Suspense fallback={<LazySpinner />}>
             <ProductScanner />
           </Suspense>
         )}
 
-        {isLoggedIn && !showProfileScreen && activeTab === 'inventory' && (
+        {isLoggedIn && !showProfileScreen && !showSettingsScreen && activeTab === 'inventory' && (
           <Suspense fallback={<LazySpinner />}>
             <InventoryCountPage />
           </Suspense>
         )}
 
-        {isLoggedIn && !showProfileScreen && activeTab === 'mo35' && (
+        {isLoggedIn && !showProfileScreen && !showSettingsScreen && activeTab === 'mo35' && (
           <Mo35OcrScreen onClose={() => setActiveTab('scanner')} fullScreen={false} />
         )}
       </main>
 
-      {isLoggedIn && !showProfileScreen && (
+      {isLoggedIn && !showProfileScreen && !showSettingsScreen && (
         <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       )}
 

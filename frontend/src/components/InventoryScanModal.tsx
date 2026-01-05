@@ -3,6 +3,13 @@ import { createPortal } from 'react-dom';
 import { useInventoryScanner } from '../hooks/useInventoryScanner';
 import { toast } from './Toast';
 import haptics from '../services/haptics';
+import { api } from '../services/api';
+
+type Location = {
+  id: number;
+  name: string;
+  fullName: string;
+};
 
 const CloseIcon = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -28,6 +35,13 @@ const TrashIcon = ({ size = 16 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <polyline points="3,6 5,6 21,6" />
     <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6M8,6V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2V6" />
+  </svg>
+);
+
+const LocationIcon = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+    <circle cx="12" cy="10" r="3" />
   </svg>
 );
 
@@ -73,6 +87,9 @@ export default function InventoryScanModal() {
   } = useInventoryScanner({ sessionId: activeSessionId || 'default' });
 
   const [submitting, setSubmitting] = useState(false);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [loadingLocations, setLoadingLocations] = useState(false);
   const portalTarget = useMemo(() => (typeof document !== 'undefined' ? document.body : null), []);
 
   useEffect(() => {
@@ -129,6 +146,33 @@ export default function InventoryScanModal() {
     localStorage.setItem('inv_active_session_v1', activeSessionId);
   }, [activeSessionId]);
 
+  // Load inventory locations on mount
+  useEffect(() => {
+    const loadLocations = async () => {
+      setLoadingLocations(true);
+      try {
+        const data = await api.getInventoryLocations();
+        if (data?.locations && data.locations.length > 0) {
+          setLocations(data.locations);
+          // Try to restore previously selected location
+          const savedLocationId = localStorage.getItem('inv_selected_location_id');
+          if (savedLocationId) {
+            const found = data.locations.find((loc: Location) => loc.id === parseInt(savedLocationId, 10));
+            if (found) {
+              setSelectedLocation(found);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading locations:', err);
+        toast.error('No se pudieron cargar las ubicaciones');
+      } finally {
+        setLoadingLocations(false);
+      }
+    };
+    loadLocations();
+  }, []);
+
   useEffect(() => {
     if (!activeSessionId) return;
     const now = Date.now();
@@ -147,6 +191,14 @@ export default function InventoryScanModal() {
     });
   }, [activeSessionId, lastCode, totalItems]);
 
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+  const handleSelectLocation = (location: Location) => {
+    setSelectedLocation(location);
+    localStorage.setItem('inv_selected_location_id', String(location.id));
+    haptics.selection();
+  };
+
   const handleStart = async () => {
     try {
       await start();
@@ -163,25 +215,41 @@ export default function InventoryScanModal() {
     }
   };
 
-  const handleSubmit = async () => {
+  // Save session and close scanner (no API call)
+  const handleSaveSession = async () => {
+    if (lines.length === 0) return;
+    haptics.light();
+    toast.success('Sesion guardada');
+    await stop();
+  };
+
+  // Show location picker to send to Odoo (from main page)
+  const handleUpdateInventoryClick = () => {
     if (lines.length === 0 || submitting) return;
+    setShowLocationPicker(true);
+  };
+
+  const handleConfirmSubmit = async (location: Location) => {
+    setShowLocationPicker(false);
+    setSelectedLocation(location);
+    localStorage.setItem('inv_selected_location_id', String(location.id));
     setSubmitting(true);
     haptics.light();
     try {
-      const submitted = await submit();
+      const submitted = await submit(location.id);
       if (submitted && submitted.length > 0) {
         const entry = {
           id: `hist_${Date.now()}`,
           submittedAt: Date.now(),
           totalItems: submitted.reduce((sum, line) => sum + line.qty, 0),
           lines: submitted,
+          locationName: location.fullName,
         };
         const nextHistory = [entry, ...history].slice(0, 3);
         setHistory(nextHistory);
         localStorage.setItem('inv_count_history_v1', JSON.stringify(nextHistory));
       }
-      toast.success('Conteo enviado');
-      await stop();
+      toast.success(`Conteo enviado a ${location.fullName}`);
     } catch (err) {
       toast.error('Error al enviar conteo');
     } finally {
@@ -294,8 +362,8 @@ export default function InventoryScanModal() {
           <button className="btn-secondary" onClick={handleClear} disabled={lines.length === 0}>
             Limpiar
           </button>
-          <button className="btn-success" onClick={handleSubmit} disabled={lines.length === 0 || submitting}>
-            Enviar contado
+          <button className="btn-primary" onClick={handleSaveSession} disabled={lines.length === 0}>
+            Guardar sesion
           </button>
         </div>
       </div>
@@ -351,6 +419,15 @@ export default function InventoryScanModal() {
           ))}
           {lines.length > 5 && (
             <div className="inventory-empty">+{lines.length - 5} mas</div>
+          )}
+          {lines.length > 0 && (
+            <button
+              className="btn-primary btn-large inventory-update-btn"
+              onClick={handleUpdateInventoryClick}
+              disabled={submitting}
+            >
+              {submitting ? 'Enviando...' : 'Actualizar inventario'}
+            </button>
           )}
         </div>
 
@@ -413,6 +490,46 @@ export default function InventoryScanModal() {
         </div>
       </div>
       {portalTarget ? createPortal(modal, portalTarget) : modal}
+
+      {/* Location Picker Modal */}
+      {showLocationPicker && (
+        <div className="location-picker-overlay">
+          <div className="location-picker-backdrop" onClick={() => setShowLocationPicker(false)} />
+          <div className="location-picker-modal">
+            <div className="location-picker-header">
+              <div className="location-picker-title">Selecciona ubicacion</div>
+              <div className="location-picker-subtitle">A donde enviar el conteo de {totalItems} items?</div>
+            </div>
+            {loadingLocations ? (
+              <div className="inventory-empty">Cargando ubicaciones...</div>
+            ) : locations.length === 0 ? (
+              <div className="inventory-empty">No hay ubicaciones disponibles</div>
+            ) : (
+              <div className="location-picker-list">
+                {locations.map((location) => (
+                  <button
+                    key={location.id}
+                    className={`location-picker-btn ${selectedLocation?.id === location.id ? 'selected' : ''}`}
+                    onClick={() => handleConfirmSubmit(location)}
+                    disabled={submitting}
+                  >
+                    <LocationIcon size={22} />
+                    <span className="location-picker-name">
+                      {location.fullName || location.name || `Ubicacion ${location.id}`}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              className="btn-secondary location-picker-cancel"
+              onClick={() => setShowLocationPicker(false)}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

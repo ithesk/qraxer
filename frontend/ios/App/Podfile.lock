@@ -9,6 +9,8 @@ PODS:
   - CapacitorMlkitBarcodeScanning (8.0.0):
     - Capacitor
     - GoogleMLKit/BarcodeScanning (~> 8.0.0)
+  - CapacitorPushNotifications (8.0.0):
+    - Capacitor
   - CapacitorStatusBar (8.0.0):
     - Capacitor
   - CapgoCapacitorNativeBiometric (7.1.13):
@@ -68,6 +70,7 @@ DEPENDENCIES:
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
   - "CapacitorMlkitBarcodeScanning (from `../../node_modules/@capacitor-mlkit/barcode-scanning`)"
+  - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
   - "CapgoCapacitorNativeBiometric (from `../../node_modules/@capgo/capacitor-native-biometric`)"
   - "JcesarmobileCapacitorOcr (from `../../node_modules/@jcesarmobile/capacitor-ocr`)"
@@ -97,6 +100,8 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/haptics"
   CapacitorMlkitBarcodeScanning:
     :path: "../../node_modules/@capacitor-mlkit/barcode-scanning"
+  CapacitorPushNotifications:
+    :path: "../../node_modules/@capacitor/push-notifications"
   CapacitorStatusBar:
     :path: "../../node_modules/@capacitor/status-bar"
   CapgoCapacitorNativeBiometric:
@@ -110,6 +115,7 @@ SPEC CHECKSUMS:
   CapacitorCordova: 5dc3912d25ef770a3fe0f431bb65c9fbfa2e92f9
   CapacitorHaptics: 2079d9fa04c5a71e18663b4722323c304c58245c
   CapacitorMlkitBarcodeScanning: c990cd038eeede95212af747f0e7fcf9c91e61e7
+  CapacitorPushNotifications: 722c1528eabbefd355f47e373a4c6235d01e85e9
   CapacitorStatusBar: 312e2e67928dfe9514c4a8916a1fd610552f5f35
   CapgoCapacitorNativeBiometric: c9a116d9516b3f52dd335aea6a0c5073be36fe5a
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
@@ -125,6 +131,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: cd5afa1f2bd37aab8037135de43d3233fec8e5cc
+PODFILE CHECKSUM: 958018cca8eb2bdc2ca248a24a9c120638b551e2
 
 COCOAPODS: 1.16.2

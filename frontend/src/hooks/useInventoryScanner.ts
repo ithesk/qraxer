@@ -215,10 +215,10 @@ export const useInventoryScanner = (options: InventoryScannerOptions = {}) => {
     writeJson(`${DRAFT_KEY_PREFIX}_${sessionId}`, []);
   }, [sessionId]);
 
-  const submit = useCallback(async () => {
+  const submit = useCallback(async (locationId?: number | null) => {
     if (lines.length === 0) return;
     const snapshot = [...lines];
-    await submitCounts(lines);
+    await submitCounts(lines, locationId);
     setLines([]);
     writeJson(`${DRAFT_KEY_PREFIX}_${sessionId}`, []);
     return snapshot;
