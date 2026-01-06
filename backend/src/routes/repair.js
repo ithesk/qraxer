@@ -225,6 +225,18 @@ router.post('/create', async (req, res, next) => {
     const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
+    // ========== DEBUG LOGS ==========
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║  [REPAIR/CREATE] REQUEST RECIBIDO - RAMA EXPERIMENTAL    ║');
+    console.log('╠══════════════════════════════════════════════════════════╣');
+    console.log('║  req.body.async:', req.body.async);
+    console.log('║  useAsync (parsed):', useAsync);
+    console.log('║  typeof req.body.async:', typeof req.body.async);
+    console.log('║  MODO:', useAsync ? '🚀 ASYNC' : '🐢 SYNC');
+    console.log('╚══════════════════════════════════════════════════════════╝');
+    console.log('');
+
     // IDEMPOTENCY CHECK: Si hay key, verificar si ya existe la orden
     if (idempotencyKey) {
       const existing = idempotencyService.check(idempotencyKey, userInfo.userId);
