@@ -587,14 +587,16 @@ class OdooClient {
       log('Warning: No se pudo registrar en chatter:', e.message);
     }
 
-    // Imprimir etiqueta y recibo automáticamente (como lo hace Odoo UI)
-    try {
-      log('Ejecutando impresión automática para orden:', repairId);
-      await this.execute('repair.order', 'action_print_via_cups', [[repairId]], {}, userIdOrInfo);
-      log('Impresión automática ejecutada correctamente');
-    } catch (e) {
-      log('Warning: No se pudo ejecutar impresión automática:', e.message);
-    }
+    // Imprimir etiqueta y recibo en background (no bloquea respuesta al frontend)
+    setImmediate(async () => {
+      try {
+        log('Ejecutando impresión automática para orden:', repairId);
+        await this.execute('repair.order', 'action_print_via_cups', [[repairId]], {}, userIdOrInfo);
+        log('Impresión automática ejecutada correctamente');
+      } catch (e) {
+        log('Warning: No se pudo ejecutar impresión automática:', e.message);
+      }
+    });
 
     return {
       id: repair.id,
