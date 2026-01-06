@@ -243,11 +243,12 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
 
   // Change repair state
   const handleChangeState = async (newState) => {
-    if (!realName || changingState) return;
+    if (!repairId || changingState) return;
 
     setChangingState(true);
     try {
-      await api.updateState(`REP:${realName}`, newState, null);
+      // Usar updateRepairState que actualiza por ID (no requiere validación QR)
+      await api.updateRepairState(repairId, newState, null);
       haptics.success();
       toast.success('Estado actualizado');
       setCurrentState(newState);
