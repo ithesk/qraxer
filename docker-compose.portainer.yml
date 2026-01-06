@@ -20,6 +20,8 @@ version: '3.8'
 # - SUPABASE_URL
 # - SUPABASE_SERVICE_ROLE_KEY
 # - SUPABASE_ANON_KEY
+# - SUPABASE_SERVICE_EMAIL (usuario de servicio para auth)
+# - SUPABASE_SERVICE_PASSWORD
 
 services:
   backend:
@@ -56,6 +58,8 @@ services:
       - SUPABASE_URL=${SUPABASE_URL:-}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - SUPABASE_SERVICE_EMAIL=${SUPABASE_SERVICE_EMAIL:-}
+      - SUPABASE_SERVICE_PASSWORD=${SUPABASE_SERVICE_PASSWORD:-}
     volumes:
       # Montar carpeta de keys para APNs (crear en servidor si se usa)
       - ./keys:/app/keys:ro

@@ -86,6 +86,9 @@ export const config = {
     url: optional('SUPABASE_URL', ''),
     serviceRoleKey: optional('SUPABASE_SERVICE_ROLE_KEY', ''),
     anonKey: optional('SUPABASE_ANON_KEY', ''),
+    // Usuario de servicio para autenticación con Edge Functions
+    serviceEmail: optional('SUPABASE_SERVICE_EMAIL', ''),
+    servicePassword: optional('SUPABASE_SERVICE_PASSWORD', ''),
   },
 };
 

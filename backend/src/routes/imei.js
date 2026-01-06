@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { config } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { supabaseAuth } from '../services/supabaseAuth.js';
 
 const router = Router();
 
@@ -49,6 +50,11 @@ router.post('/lookup', async (req, res, next) => {
       throw new AppError('Servicio IMEI no configurado', 503);
     }
 
+    // Verificar que el servicio de autenticación está disponible
+    if (!supabaseAuth.isEnabled()) {
+      throw new AppError('Credenciales de servicio IMEI no configuradas', 503);
+    }
+
     const { imei: rawImei, forceRefresh = false } = req.body;
 
     if (!rawImei) {
@@ -68,15 +74,22 @@ router.post('/lookup', async (req, res, next) => {
 
     logger.debug('IMEI lookup request:', imei);
 
-    // Llamar a la Edge Function de Supabase
+    // Obtener token de usuario de Supabase
+    const userToken = await supabaseAuth.getValidToken();
+    if (!userToken) {
+      logger.error('No se pudo obtener token de Supabase');
+      throw new AppError('Error de autenticación con servicio IMEI', 503);
+    }
+
+    // Llamar a la Edge Function de Supabase con token de usuario
     const functionUrl = `${config.supabase.url}/functions/v1/lookup_imei`;
 
     const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.supabase.serviceRoleKey}`,
-        'apikey': config.supabase.anonKey || config.supabase.serviceRoleKey,
+        'Authorization': `Bearer ${userToken}`,
+        'apikey': config.supabase.anonKey,
       },
       body: JSON.stringify({
         imei,
@@ -144,11 +157,19 @@ router.post('/lookup', async (req, res, next) => {
  * Verificar si el servicio IMEI está disponible
  */
 router.get('/status', (req, res) => {
+  const supabaseConfigured = config.supabase.enabled;
+  const authConfigured = supabaseAuth.isEnabled();
+  const fullyEnabled = supabaseConfigured && authConfigured;
+
   res.json({
-    enabled: config.supabase.enabled,
-    message: config.supabase.enabled
+    enabled: fullyEnabled,
+    supabaseConfigured,
+    authConfigured,
+    message: fullyEnabled
       ? 'Servicio IMEI disponible'
-      : 'Servicio IMEI no configurado',
+      : !supabaseConfigured
+        ? 'Servicio IMEI no configurado (falta SUPABASE_URL/KEY)'
+        : 'Credenciales de servicio no configuradas (falta SUPABASE_SERVICE_EMAIL/PASSWORD)',
   });
 });
 
