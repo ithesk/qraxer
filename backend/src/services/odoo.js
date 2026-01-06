@@ -274,13 +274,14 @@ class OdooClient {
     const oldState = repair.state;
 
     // Actualizar estado Y asignar el usuario al campo user_id
+    // Pasar contexto skip_auto_print para evitar reimpresión
     await this.execute('repair.order', 'write', [
       [repairId],
       {
         state: newState,
         user_id: userIdNum,  // Asignar el usuario que hace el cambio (número, no objeto)
       },
-    ], {}, userIdOrInfo);
+    ], { context: { skip_auto_print: true } }, userIdOrInfo);
 
     // Registrar en chatter para auditoría
     const auditMessage = `
