@@ -7,6 +7,10 @@
 
 ---
 
+el frontend siempre es la rama ios-capacitor
+el backend es la rama experimental
+
+
 ## 1. Resumen Ejecutivo
 
 ### Objetivo

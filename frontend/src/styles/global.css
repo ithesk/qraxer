@@ -65,6 +65,40 @@
   --sal: env(safe-area-inset-left);
   --sar: env(safe-area-inset-right);
   --tab-height: 72px;
+
+  /* Responsive Content (iPad compatibility) */
+  --content-max-width: 480px;
+  --content-padding: 16px;
+  --scanner-aspect: 1;
+}
+
+/* ==========================================
+   TABLET RESPONSIVE - iPad Support
+   ========================================== */
+
+/* Tablet Portrait (768px+) - iPad Mini, iPad Air, iPad Pro */
+@media (min-width: 768px) {
+  :root {
+    --content-max-width: 680px;
+    --content-padding: 24px;
+    --tab-height: 64px;
+  }
+}
+
+/* Tablet Landscape (1024px+) - iPad landscape modes */
+@media (min-width: 1024px) {
+  :root {
+    --content-max-width: 800px;
+    --content-padding: 32px;
+    --scanner-aspect: 16/10;
+  }
+}
+
+/* iPad Pro 12.9" Landscape (1280px+) */
+@media (min-width: 1280px) {
+  :root {
+    --content-max-width: 900px;
+  }
 }
 
 html {
@@ -251,7 +285,7 @@ select {
 }
 
 .header-content {
-  max-width: 480px;
+  max-width: var(--content-max-width);
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -509,9 +543,9 @@ select {
    ========================================== */
 .container {
   padding: var(--space-lg);
-  padding-left: calc(var(--sal) + var(--space-lg));
-  padding-right: calc(var(--sar) + var(--space-lg));
-  max-width: 480px;
+  padding-left: calc(var(--sal) + var(--content-padding));
+  padding-right: calc(var(--sar) + var(--content-padding));
+  max-width: var(--content-max-width);
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
@@ -839,8 +873,8 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 16px;
-  max-width: 480px;
+  padding: 8px var(--content-padding);
+  max-width: var(--content-max-width);
   margin: 0 auto;
 }
 
@@ -1065,7 +1099,7 @@ select {
   padding: var(--space-2xl);
   padding-bottom: max(24px, env(safe-area-inset-bottom));
   width: 100%;
-  max-width: 480px;
+  max-width: var(--content-max-width);
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.25s ease-out;
@@ -1871,7 +1905,7 @@ body.barcode-scanning-active #root {
 .mo35-panel {
   position: relative;
   width: 100%;
-  max-width: 480px;
+  max-width: var(--content-max-width);
   margin: 0 auto;
   background: var(--card-bg);
   padding: 20px;
@@ -2481,7 +2515,7 @@ body.barcode-scanning-active #root {
   background: var(--card-bg);
   border-radius: 16px 16px 0 0;
   width: 100%;
-  max-width: 480px;
+  max-width: var(--content-max-width);
   padding: 16px 20px calc(env(safe-area-inset-bottom) + 20px);
   animation: slideUp 0.25s ease-out;
 }
@@ -2795,5 +2829,327 @@ body.barcode-scanning-active #root {
   }
   to {
     transform: translateY(0);
+  }
+}
+
+/* ============================================
+   iPad Compatibility - Fase 2 & 3
+   ============================================ */
+
+/* --- FASE 2: Componentes Principales --- */
+
+/* Header responsivo (768px+) */
+@media (min-width: 768px) {
+  .header-logo img {
+    height: 36px;
+  }
+
+  .header-user {
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
+  }
+
+  .header-title {
+    font-size: 20px;
+  }
+}
+
+/* Bottom navigation adaptativo (1024px+ landscape) */
+@media (min-width: 1024px) and (orientation: landscape) {
+  .bottom-nav {
+    height: 60px;
+  }
+
+  .bottom-nav-inner {
+    max-width: 600px;
+  }
+
+  .bottom-nav-item {
+    padding: 6px 16px;
+  }
+
+  .bottom-nav-label {
+    font-size: 11px;
+  }
+}
+
+/* Login screen centrado en tablet */
+@media (min-width: 768px) {
+  .login-screen {
+    padding: 48px;
+    justify-content: center;
+  }
+
+  .login-container {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .login-form {
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  .login-logo {
+    width: 120px;
+    height: 120px;
+    margin-bottom: 32px;
+  }
+
+  .login-title {
+    font-size: 28px;
+  }
+
+  .login-subtitle {
+    font-size: 16px;
+  }
+
+  .login-input {
+    font-size: 17px;
+    padding: 16px;
+  }
+
+  .login-btn {
+    font-size: 17px;
+    padding: 16px;
+  }
+}
+
+/* Scanner area con aspect ratio dinámico */
+@media (min-width: 768px) {
+  .scanner-container {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .scanner-area,
+  .scanner-preview {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .scanner-overlay-text {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) and (orientation: landscape) {
+  .scanner-container {
+    max-width: 600px;
+  }
+
+  .scanner-area,
+  .scanner-preview {
+    max-width: 600px;
+    aspect-ratio: 16/10;
+  }
+}
+
+/* --- FASE 3: Pantallas Secundarias --- */
+
+/* Profile screen */
+@media (min-width: 768px) {
+  .profile-ios-avatar-container {
+    width: 140px;
+    height: 140px;
+  }
+
+  .profile-ios-avatar {
+    width: 140px;
+    height: 140px;
+    font-size: 56px;
+  }
+
+  .profile-ios-name {
+    font-size: 26px;
+  }
+
+  .profile-ios-email {
+    font-size: 16px;
+  }
+
+  .profile-ios-card {
+    max-width: 600px;
+    margin: 0 auto 20px;
+  }
+
+  .profile-ios-section-title {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 8px 24px;
+  }
+
+  .profile-ios-action-sheet {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+}
+
+/* Settings screen */
+@media (min-width: 768px) {
+  .settings-screen {
+    padding: 0 24px;
+  }
+
+  .settings-content {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .settings-section {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .settings-section-title {
+    font-size: 14px;
+  }
+
+  .settings-item {
+    padding: 16px 20px;
+  }
+
+  .settings-item-label {
+    font-size: 17px;
+  }
+
+  .settings-picker {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .settings-info {
+    max-width: 600px;
+    margin: 12px auto;
+    padding: 0 24px;
+  }
+}
+
+/* Mo35 OCR screen (grid layout) */
+@media (min-width: 768px) {
+  .mo35-ocr-screen {
+    padding: var(--content-padding);
+  }
+
+  .mo35-ocr-list,
+  .mo35-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .mo35-ocr-item,
+  .mo35-card {
+    margin-bottom: 0;
+  }
+
+  .mo35-panel {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .mo35-ocr-list,
+  .mo35-list {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 1000px;
+  }
+}
+
+/* Quick Creator forms */
+@media (min-width: 768px) {
+  .quick-creator-screen {
+    padding: 24px;
+  }
+
+  .quick-creator-form,
+  .repair-form {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .quick-creator-input,
+  .repair-input {
+    font-size: 17px;
+    padding: 14px 16px;
+  }
+
+  .quick-creator-btn,
+  .repair-btn {
+    font-size: 17px;
+    padding: 16px;
+  }
+
+  .quick-creator-section-title {
+    font-size: 14px;
+  }
+}
+
+/* Modales y Action Sheets centrados */
+@media (min-width: 768px) {
+  .modal-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .modal-content {
+    max-width: 500px;
+    margin: auto;
+    border-radius: 16px;
+  }
+
+  .action-sheet {
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .toast {
+    max-width: 400px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+/* Inventory count page */
+@media (min-width: 768px) {
+  .inventory-count-screen {
+    padding: 24px;
+  }
+
+  .inventory-count-content {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .inventory-count-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .inventory-count-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Recent scans */
+@media (min-width: 768px) {
+  .recent-scans-list {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+}
+
+/* Offline banner adaptativo */
+@media (min-width: 768px) {
+  .offline-banner {
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: 12px;
   }
 }
