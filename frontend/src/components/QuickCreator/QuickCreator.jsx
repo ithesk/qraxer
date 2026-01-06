@@ -205,18 +205,38 @@ export default function QuickCreator() {
         const result = await api.createRepairOrder(repairData, idempotencyKey);
         console.log('[QuickCreator] Order created:', result);
 
-        // Success! Show confirmation with real data
+        // Check if processing in background (async mode)
+        if (result.processing) {
+          // Order is being processed, show "processing" confirmation
+          setOrderResult({
+            localId: null,
+            tempDisplayId: null,
+            realId: null,
+            realName: null,
+            status: 'processing', // new status for async processing
+            duplicate: false,
+            client,
+            equipment,
+            problems,
+            branchName,
+          });
+          setView('confirmation');
+          haptics.success();
+          return;
+        }
+
+        // Success! Show confirmation with real data (sync mode - for duplicates)
         setOrderResult({
           localId: null,
           tempDisplayId: null,
-          realId: result.repair.id,
-          realName: result.repair.name,
+          realId: result.repair?.id,
+          realName: result.repair?.name,
           status: 'confirmed',
           duplicate: result.duplicate || false,
           client,
           equipment,
           problems,
-          branchName: result.repair.branch || branchName,
+          branchName: result.repair?.branch || branchName,
         });
         setView('confirmation');
         haptics.success();

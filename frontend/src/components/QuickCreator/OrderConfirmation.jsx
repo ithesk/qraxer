@@ -145,6 +145,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
   const isSyncing = status === 'syncing';
   const isFailed = status === 'failed';
   const isConfirmed = status === 'confirmed';
+  const isProcessing = status === 'processing'; // Order sent, waiting for push notification
   const isQueued = isPending || isSyncing; // Local order waiting to sync
 
   const handleShareWhatsApp = () => {
@@ -232,6 +233,15 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
         spin: true,
       };
     }
+    if (isProcessing) {
+      return {
+        icon: <SyncIcon />,
+        bgGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+        shadow: 'rgba(16, 185, 129, 0.4)',
+        badge: { bg: '#ecfdf5', color: '#059669', text: 'Creando orden...' },
+        spin: true,
+      };
+    }
     if (isPending) {
       return {
         icon: <ClockIcon />,
@@ -315,6 +325,17 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
             color: 'var(--text-muted)',
           }}>
             Se sincronizará automáticamente al recuperar conexión
+          </div>
+        )}
+
+        {/* Processing hint */}
+        {isProcessing && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+          }}>
+            Recibirás una notificación cuando se complete
           </div>
         )}
       </div>

@@ -252,39 +252,71 @@ router.post('/create', async (req, res, next) => {
       throw new AppError('Sucursal requerida', 400);
     }
 
-    logger.debug('Creando orden:', { clientId, branchId, model: equipment?.model, idempotencyKey });
+    logger.debug('Creando orden en background:', { clientId, branchId, model: equipment?.model, idempotencyKey });
 
-    const repair = await odooClient.createRepairOrder(
-      {
-        clientId,
-        equipment,
-        problems,
-        note,
-        branchId,
-        leadSource,
-        deliveryDate,
-        estimatedBudget,
-      },
-      userInfo,
-      userName
-    );
-
-    // IDEMPOTENCY SAVE: Guardar key para futuras verificaciones
-    if (idempotencyKey) {
-      idempotencyService.save(idempotencyKey, repair.id, repair.name, userInfo.userId);
-    }
-
+    // Responder inmediatamente al frontend
     res.json({
       success: true,
-      duplicate: false,
-      repair: {
-        id: repair.id,
-        name: repair.name,
-        state: repair.state,
-        partner: repair.partner,
-        branch: repair.branch,
-        description: repair.description,
-      },
+      processing: true,
+      message: 'Orden en proceso de creación',
+    });
+
+    // Procesar en background
+    setImmediate(async () => {
+      try {
+        const repair = await odooClient.createRepairOrder(
+          {
+            clientId,
+            equipment,
+            problems,
+            note,
+            branchId,
+            leadSource,
+            deliveryDate,
+            estimatedBudget,
+          },
+          userInfo,
+          userName
+        );
+
+        // IDEMPOTENCY SAVE: Guardar key para futuras verificaciones
+        if (idempotencyKey && repair.id) {
+          idempotencyService.save(idempotencyKey, repair.id, repair.name, userInfo.userId);
+        }
+
+        // Enviar push notification de éxito
+        const apnsService = require('../services/apns');
+        await apnsService.sendNotification(userInfo.userId, {
+          title: '✅ Orden Creada',
+          body: `Orden ${repair.name || '#' + repair.id} creada exitosamente`,
+          sound: 'default',
+          data: {
+            type: 'order_created',
+            repairId: repair.id,
+            repairName: repair.name,
+          },
+        });
+
+        logger.info(`Orden ${repair.id} creada y notificación enviada a usuario ${userInfo.userId}`);
+      } catch (error) {
+        logger.error('Error creando orden en background:', error.message);
+
+        // Enviar push notification de error
+        try {
+          const apnsService = require('../services/apns');
+          await apnsService.sendNotification(userInfo.userId, {
+            title: '❌ Error al Crear Orden',
+            body: error.message || 'No se pudo crear la orden',
+            sound: 'default',
+            data: {
+              type: 'order_error',
+              error: error.message,
+            },
+          });
+        } catch (pushError) {
+          logger.error('Error enviando push de error:', pushError.message);
+        }
+      }
     });
   } catch (error) {
     next(error);
