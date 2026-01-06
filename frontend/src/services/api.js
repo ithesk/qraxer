@@ -362,6 +362,15 @@ class ApiService {
       payload.idempotencyKey = idempotencyKey;
     }
 
+    // ========== DEBUG LOGS ==========
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║  [API] createRepairOrder - RAMA IOS-CAPACITOR            ║');
+    console.log('╠══════════════════════════════════════════════════════════╣');
+    console.log('║  payload.async:', payload.async);
+    console.log('║  payload:', JSON.stringify(payload, null, 2));
+    console.log('╚══════════════════════════════════════════════════════════╝');
+
     const response = await this.request('/repair/create', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -369,17 +378,31 @@ class ApiService {
 
     const data = await response.json();
 
+    // ========== DEBUG LOGS ==========
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║  [API] RESPUESTA DEL BACKEND                             ║');
+    console.log('╠══════════════════════════════════════════════════════════╣');
+    console.log('║  data.status:', data.status);
+    console.log('║  data.jobId:', data.jobId);
+    console.log('║  data.repair:', data.repair ? 'EXISTE' : 'NO EXISTE');
+    console.log('║  MODO:', data.jobId ? '🚀 ASYNC' : '🐢 SYNC');
+    console.log('║  data:', JSON.stringify(data, null, 2));
+    console.log('╚══════════════════════════════════════════════════════════╝');
+
     if (!response.ok) {
       throw new Error(data.error || 'Error al crear orden');
     }
 
     // Si ya está completada (duplicado o modo sync), retornar directo
     if (data.status === 'completed' || data.repair) {
+      console.log('[API] Retornando directo (duplicado o sync)');
       return data;
     }
 
     // Modo async: hacer polling hasta completar
     if (data.status === 'processing' && data.jobId) {
+      console.log('[API] 🚀 Iniciando polling para jobId:', data.jobId);
       if (onProgress) onProgress('Creando orden...');
       return this._pollJobStatus(data.jobId, onProgress);
     }
