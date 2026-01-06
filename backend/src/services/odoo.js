@@ -557,6 +557,17 @@ class OdooClient {
 
     log('Orden creada con ID:', repairId);
 
+    // Obtener el nombre de la orden (necesario para el frontend)
+    const repairs = await this.execute('repair.order', 'search_read', [
+      [['id', '=', repairId]],
+    ], {
+      fields: ['name'],
+      limit: 1,
+    }, userIdOrInfo);
+
+    const repairName = repairs[0]?.name || null;
+    log('Nombre de orden:', repairName);
+
     // Ejecutar tareas secundarias en background (no bloquean respuesta al frontend)
     setImmediate(async () => {
       // Registrar en chatter
@@ -589,10 +600,10 @@ class OdooClient {
       }
     });
 
-    // Retornar inmediatamente con datos mínimos
+    // Retornar con ID y nombre
     return {
       id: repairId,
-      name: null, // Se puede obtener después si es necesario
+      name: repairName,
       state: 'draft',
       partner: null,
       branch: null,
