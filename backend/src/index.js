@@ -9,6 +9,7 @@ import clientsRoutes from './routes/clients.js';
 import productsRoutes from './routes/products.js';
 import inventoryRoutes from './routes/inventory.js';
 import devicesRoutes from './routes/devices.js';
+import imeiRoutes from './routes/imei.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { database } from './services/database.js';
 import { apnsService } from './services/apns.js';
@@ -49,6 +50,7 @@ app.use('/api/clients', clientsRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/devices', devicesRoutes);
+app.use('/api/imei', imeiRoutes);
 
 // Error handling
 app.use(errorHandler);

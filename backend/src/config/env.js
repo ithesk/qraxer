@@ -78,6 +78,15 @@ export const config = {
     // Por defecto usa sandbox (development) para desarrollo con Xcode
     production: optional('APNS_PRODUCTION', 'false') === 'true',
   },
+
+  // Supabase (IMEI Lookup via Edge Function) - OPCIONAL
+  // Si no se configura, la funcionalidad IMEI no estará disponible
+  supabase: {
+    enabled: !!process.env.SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    url: optional('SUPABASE_URL', ''),
+    serviceRoleKey: optional('SUPABASE_SERVICE_ROLE_KEY', ''),
+    anonKey: optional('SUPABASE_ANON_KEY', ''),
+  },
 };
 
 export default config;
