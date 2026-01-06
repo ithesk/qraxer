@@ -89,4 +89,17 @@ export const config = {
   },
 };
 
+// Debug: Log Supabase configuration at startup
+console.log('[CONFIG] Supabase configuration:');
+console.log('[CONFIG]   SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
+console.log('[CONFIG]   SUPABASE_SERVICE_ROLE_KEY exists:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+console.log('[CONFIG]   SUPABASE_ANON_KEY exists:', !!process.env.SUPABASE_ANON_KEY);
+console.log('[CONFIG]   config.supabase.enabled:', config.supabase.enabled);
+if (process.env.SUPABASE_URL) {
+  console.log('[CONFIG]   SUPABASE_URL value:', process.env.SUPABASE_URL.substring(0, 30) + '...');
+}
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.log('[CONFIG]   SERVICE_ROLE_KEY length:', process.env.SUPABASE_SERVICE_ROLE_KEY.length);
+}
+
 export default config;
