@@ -18,6 +18,13 @@ class SupabaseAuthService {
    * Inicializa el cliente de Supabase
    */
   initialize() {
+    logger.info('[SupabaseAuth] initialize() llamado');
+    logger.info('[SupabaseAuth]   config.supabase.enabled:', config.supabase.enabled);
+    logger.info('[SupabaseAuth]   config.supabase.url:', config.supabase.url ? config.supabase.url.substring(0, 40) + '...' : 'NOT SET');
+    logger.info('[SupabaseAuth]   config.supabase.anonKey exists:', !!config.supabase.anonKey);
+    logger.info('[SupabaseAuth]   config.supabase.serviceEmail:', config.supabase.serviceEmail || 'NOT SET');
+    logger.info('[SupabaseAuth]   config.supabase.servicePassword length:', config.supabase.servicePassword?.length || 0);
+
     if (!config.supabase.enabled) {
       logger.info('[SupabaseAuth] Supabase no configurado, servicio deshabilitado');
       return false;
@@ -35,7 +42,7 @@ class SupabaseAuthService {
       },
     });
 
-    logger.info('[SupabaseAuth] Cliente inicializado');
+    logger.info('[SupabaseAuth] Cliente Supabase creado exitosamente');
     return true;
   }
 
@@ -88,11 +95,15 @@ class SupabaseAuthService {
    */
   async login() {
     if (!this.supabase) {
+      logger.error('[SupabaseAuth] login() llamado sin cliente Supabase inicializado');
       return null;
     }
 
     try {
-      logger.debug('[SupabaseAuth] Haciendo login con usuario de servicio...');
+      // Debug: mostrar credenciales (parcialmente)
+      const email = config.supabase.serviceEmail;
+      const passLength = config.supabase.servicePassword?.length || 0;
+      logger.info(`[SupabaseAuth] Intentando login con email: ${email}, password length: ${passLength}`);
 
       const { data, error } = await this.supabase.auth.signInWithPassword({
         email: config.supabase.serviceEmail,
@@ -101,6 +112,8 @@ class SupabaseAuthService {
 
       if (error) {
         logger.error('[SupabaseAuth] Error en login:', error.message);
+        logger.error('[SupabaseAuth] Error code:', error.code || 'N/A');
+        logger.error('[SupabaseAuth] Error status:', error.status || 'N/A');
         return null;
       }
 
