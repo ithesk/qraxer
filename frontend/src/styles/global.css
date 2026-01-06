@@ -3153,3 +3153,264 @@ body.barcode-scanning-active #root {
     border-radius: 12px;
   }
 }
+
+/* ============================================
+   iPad Compatibility - Fase 4: Detalles
+   ============================================ */
+
+/* Confirm dialogs y alerts */
+@media (min-width: 768px) {
+  .confirm-dialog,
+  .alert-dialog {
+    max-width: 400px;
+    margin: auto;
+    border-radius: 14px;
+  }
+
+  .confirm-dialog-title,
+  .alert-dialog-title {
+    font-size: 18px;
+  }
+
+  .confirm-dialog-message,
+  .alert-dialog-message {
+    font-size: 15px;
+  }
+}
+
+/* Result screen (scan result) */
+@media (min-width: 768px) {
+  .result-screen {
+    padding: 32px;
+  }
+
+  .result-content {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .result-card {
+    padding: 24px;
+    border-radius: 16px;
+  }
+
+  .result-title {
+    font-size: 22px;
+  }
+
+  .result-value {
+    font-size: 18px;
+  }
+
+  .result-actions {
+    max-width: 500px;
+    margin: 24px auto 0;
+  }
+}
+
+/* Repair confirm screen */
+@media (min-width: 768px) {
+  .repair-confirm-screen {
+    padding: 24px;
+  }
+
+  .repair-confirm-content {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .repair-confirm-card {
+    padding: 24px;
+    border-radius: 16px;
+  }
+
+  .repair-confirm-title {
+    font-size: 20px;
+  }
+}
+
+/* Loading states */
+@media (min-width: 768px) {
+  .loading-overlay {
+    backdrop-filter: blur(4px);
+  }
+
+  .loading-spinner-container {
+    padding: 32px;
+    border-radius: 16px;
+  }
+
+  .loading-text {
+    font-size: 16px;
+  }
+}
+
+/* Empty states */
+@media (min-width: 768px) {
+  .empty-state {
+    padding: 48px 32px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .empty-state-icon {
+    width: 80px;
+    height: 80px;
+  }
+
+  .empty-state-title {
+    font-size: 20px;
+  }
+
+  .empty-state-message {
+    font-size: 16px;
+  }
+}
+
+/* Error states */
+@media (min-width: 768px) {
+  .error-state {
+    padding: 48px 32px;
+    max-width: 500px;
+    margin: 0 auto;
+  }
+
+  .error-state-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .error-state-title {
+    font-size: 20px;
+  }
+
+  .error-state-message {
+    font-size: 16px;
+  }
+
+  .error-state-btn {
+    font-size: 16px;
+    padding: 14px 28px;
+  }
+}
+
+/* Search inputs */
+@media (min-width: 768px) {
+  .search-container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .search-input {
+    font-size: 17px;
+    padding: 14px 16px 14px 44px;
+  }
+
+  .search-icon {
+    left: 16px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Tabs / Segmented control */
+@media (min-width: 768px) {
+  .tabs-container,
+  .segmented-control {
+    max-width: 500px;
+    margin: 0 auto 20px;
+  }
+
+  .tab-item,
+  .segment-item {
+    font-size: 15px;
+    padding: 12px 20px;
+  }
+}
+
+/* Floating action buttons */
+@media (min-width: 768px) {
+  .fab {
+    width: 60px;
+    height: 60px;
+    bottom: calc(var(--tab-height) + var(--sab) + 24px);
+    right: max(24px, calc((100vw - var(--content-max-width)) / 2));
+  }
+
+  .fab-icon {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+/* Pull to refresh */
+@media (min-width: 768px) {
+  .pull-to-refresh-indicator {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+  }
+}
+
+/* Swipe actions */
+@media (min-width: 768px) {
+  .swipe-action-btn {
+    min-width: 80px;
+    font-size: 13px;
+  }
+}
+
+/* Badge / Chip components */
+@media (min-width: 768px) {
+  .badge,
+  .chip {
+    font-size: 13px;
+    padding: 6px 12px;
+  }
+
+  .badge-large,
+  .chip-large {
+    font-size: 15px;
+    padding: 8px 16px;
+  }
+}
+
+/* Date/Time pickers */
+@media (min-width: 768px) {
+  .date-picker-modal,
+  .time-picker-modal {
+    max-width: 400px;
+    margin: auto;
+    border-radius: 16px;
+  }
+}
+
+/* Keyboard avoiding view adjustments */
+@media (min-width: 768px) {
+  .keyboard-avoiding-container {
+    max-width: var(--content-max-width);
+    margin: 0 auto;
+  }
+}
+
+/* iPad Pro 12.9" specific adjustments */
+@media (min-width: 1280px) {
+  .modal-content {
+    max-width: 600px;
+  }
+
+  .settings-content,
+  .profile-ios-card {
+    max-width: 700px;
+  }
+
+  .mo35-ocr-list,
+  .mo35-list {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 1200px;
+  }
+
+  .inventory-count-list {
+    grid-template-columns: repeat(4, 1fr);
+    max-width: 1200px;
+  }
+}

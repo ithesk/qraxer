@@ -27,6 +27,8 @@
 		"BarcodeScannerPlugin",
 		"CAPCameraPlugin",
 		"HapticsPlugin",
+		"LocalNotificationsPlugin",
+		"PreferencesPlugin",
 		"PushNotificationsPlugin",
 		"StatusBarPlugin",
 		"NativeBiometricPlugin",

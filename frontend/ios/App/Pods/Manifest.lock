@@ -6,9 +6,13 @@ PODS:
   - CapacitorCordova (8.0.0)
   - CapacitorHaptics (8.0.0):
     - Capacitor
+  - CapacitorLocalNotifications (8.0.0):
+    - Capacitor
   - CapacitorMlkitBarcodeScanning (8.0.0):
     - Capacitor
     - GoogleMLKit/BarcodeScanning (~> 8.0.0)
+  - CapacitorPreferences (8.0.0):
+    - Capacitor
   - CapacitorPushNotifications (8.0.0):
     - Capacitor
   - CapacitorStatusBar (8.0.0):
@@ -69,7 +73,9 @@ DEPENDENCIES:
   - "CapacitorCamera (from `../../node_modules/@capacitor/camera`)"
   - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
   - "CapacitorHaptics (from `../../node_modules/@capacitor/haptics`)"
+  - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
   - "CapacitorMlkitBarcodeScanning (from `../../node_modules/@capacitor-mlkit/barcode-scanning`)"
+  - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
   - "CapacitorPushNotifications (from `../../node_modules/@capacitor/push-notifications`)"
   - "CapacitorStatusBar (from `../../node_modules/@capacitor/status-bar`)"
   - "CapgoCapacitorNativeBiometric (from `../../node_modules/@capgo/capacitor-native-biometric`)"
@@ -98,8 +104,12 @@ EXTERNAL SOURCES:
     :path: "../../node_modules/@capacitor/ios"
   CapacitorHaptics:
     :path: "../../node_modules/@capacitor/haptics"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/@capacitor/local-notifications"
   CapacitorMlkitBarcodeScanning:
     :path: "../../node_modules/@capacitor-mlkit/barcode-scanning"
+  CapacitorPreferences:
+    :path: "../../node_modules/@capacitor/preferences"
   CapacitorPushNotifications:
     :path: "../../node_modules/@capacitor/push-notifications"
   CapacitorStatusBar:
@@ -114,7 +124,9 @@ SPEC CHECKSUMS:
   CapacitorCamera: 592acb7ab9fb748e2d8571eb03af30ec4e1ace12
   CapacitorCordova: 5dc3912d25ef770a3fe0f431bb65c9fbfa2e92f9
   CapacitorHaptics: 2079d9fa04c5a71e18663b4722323c304c58245c
+  CapacitorLocalNotifications: 177cfbf8228d9bd82a147e094cb7984d7afb9e29
   CapacitorMlkitBarcodeScanning: c990cd038eeede95212af747f0e7fcf9c91e61e7
+  CapacitorPreferences: 443fabe9670226200e595658a87ef0b1566716d4
   CapacitorPushNotifications: 722c1528eabbefd355f47e373a4c6235d01e85e9
   CapacitorStatusBar: 312e2e67928dfe9514c4a8916a1fd610552f5f35
   CapgoCapacitorNativeBiometric: c9a116d9516b3f52dd335aea6a0c5073be36fe5a
@@ -131,6 +143,6 @@ SPEC CHECKSUMS:
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
   PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
 
-PODFILE CHECKSUM: 958018cca8eb2bdc2ca248a24a9c120638b551e2
+PODFILE CHECKSUM: 5a2c4ce7b4862237656125a97340af8924e13a34
 
 COCOAPODS: 1.16.2
