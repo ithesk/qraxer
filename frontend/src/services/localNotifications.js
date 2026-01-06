@@ -64,14 +64,41 @@ const localNotificationsService = {
   },
 
   /**
+   * Verifica si los recordatorios ya están programados
+   */
+  async areRemindersScheduled() {
+    if (!this.isSupported()) return false;
+
+    try {
+      const pending = await this.getPendingNotifications();
+      const hasMorning = pending.some(n => n.id === NOTIFICATION_IDS.MORNING_REMINDER);
+      const hasEvening = pending.some(n => n.id === NOTIFICATION_IDS.EVENING_REMINDER);
+      return hasMorning && hasEvening;
+    } catch (e) {
+      console.error('[LocalNotifications] Error checking scheduled:', e);
+      return false;
+    }
+  },
+
+  /**
    * Programa las notificaciones de recordatorio diarias
    * - 9:00 AM: Recordatorio de inicio de día
    * - 5:00 PM: Recordatorio de cierre de reparaciones
+   * @param {boolean} force - Si es true, reprograma aunque ya existan
    */
-  async scheduleRepairReminders() {
+  async scheduleRepairReminders(force = false) {
     if (!this.isSupported()) {
       console.log('[LocalNotifications] Not supported on this platform');
       return false;
+    }
+
+    // Verificar si ya están programadas (evitar reprogramar innecesariamente)
+    if (!force) {
+      const alreadyScheduled = await this.areRemindersScheduled();
+      if (alreadyScheduled) {
+        console.log('[LocalNotifications] Reminders already scheduled, skipping');
+        return true;
+      }
     }
 
     // Solicitar permisos si no los tiene
