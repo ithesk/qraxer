@@ -255,11 +255,18 @@ class OdooClient {
 
   /**
    * Actualizar estado de reparación con auditoría y asignar usuario
+   * @param {number} repairId - ID de la reparación
+   * @param {string} newState - Nuevo estado
+   * @param {string} note - Nota opcional
+   * @param {number|object} userIdOrInfo - userId numérico o objeto {userId, username, password}
+   * @param {string} userName - Nombre del usuario
    */
-  async updateRepairState(repairId, newState, note, userId, userName) {
-    log('Actualizando estado:', { repairId, newState, userId });
+  async updateRepairState(repairId, newState, note, userIdOrInfo, userName) {
+    // Extraer userId numérico si se pasa un objeto (para re-auth)
+    const userIdNum = typeof userIdOrInfo === 'object' ? userIdOrInfo.userId : userIdOrInfo;
+    log('Actualizando estado:', { repairId, newState, userId: userIdNum });
 
-    const repair = await this.getRepairById(repairId, userId);
+    const repair = await this.getRepairById(repairId, userIdOrInfo);
     if (!repair) {
       throw new AppError('Reparación no encontrada', 404);
     }
@@ -271,15 +278,15 @@ class OdooClient {
       [repairId],
       {
         state: newState,
-        user_id: userId,  // Asignar el usuario que hace el cambio
+        user_id: userIdNum,  // Asignar el usuario que hace el cambio (número, no objeto)
       },
-    ], {}, userId);
+    ], {}, userIdOrInfo);
 
     // Registrar en chatter para auditoría
     const auditMessage = `
 <p><strong>Cambio de estado via QRaxer</strong></p>
 <ul>
-  <li><strong>Usuario:</strong> ${userName} (ID: ${userId})</li>
+  <li><strong>Usuario:</strong> ${userName} (ID: ${userIdNum})</li>
   <li><strong>Estado anterior:</strong> ${oldState}</li>
   <li><strong>Estado nuevo:</strong> ${newState}</li>
   <li><strong>Fecha:</strong> ${new Date().toISOString()}</li>
@@ -291,7 +298,7 @@ class OdooClient {
       await this.execute('repair.order', 'message_post', [repairId], {
         body: auditMessage,
         message_type: 'notification',
-      }, userId);
+      }, userIdOrInfo);
     } catch (e) {
       log('Warning: No se pudo registrar en chatter:', e.message);
     }
