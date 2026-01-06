@@ -5,8 +5,13 @@ import { qrService } from '../services/qr.js';
 import { idempotencyService } from '../services/idempotency.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { logger } from '../utils/logger.js';
+import { apnsService } from '../services/apns.js';
 
 const router = Router();
+
+// Jobs de creación de órdenes en progreso
+// Map<jobId, { status, userId, result?, error?, createdAt }>
+const pendingJobs = new Map();
 
 // Todas las rutas requieren autenticación
 router.use(authMiddleware);
@@ -194,12 +199,16 @@ router.post('/generate-qr', async (req, res, next) => {
 
 /**
  * POST /api/repair/create
- * Crear nueva orden de reparación (Quick Creator)
+ * Crear nueva orden de reparación (Quick Creator) - MODO ASÍNCRONO
+ *
+ * Flujo:
+ * 1. Responde inmediatamente con jobId y status: 'processing'
+ * 2. Crea la orden en background (Odoo puede tardar 10+ segundos)
+ * 3. Envía push notification cuando termina
+ * 4. Frontend puede hacer polling a /api/repair/job/:jobId para verificar estado
+ *
  * Campos requeridos: clientId, equipment, problems, branchId
  * Campos opcionales: note, leadSource, deliveryDate, estimatedBudget, idempotencyKey
- *
- * idempotencyKey: Si se proporciona, verifica si ya existe una orden con esa key
- * para prevenir duplicados cuando el cliente reintenta.
  */
 router.post('/create', async (req, res, next) => {
   try {
@@ -228,6 +237,7 @@ router.post('/create', async (req, res, next) => {
 
         return res.json({
           success: true,
+          status: 'completed',
           duplicate: true,
           repair: {
             id: existing.repairId,
@@ -252,41 +262,158 @@ router.post('/create', async (req, res, next) => {
       throw new AppError('Sucursal requerida', 400);
     }
 
-    logger.debug('Creando orden:', { clientId, branchId, model: equipment?.model, idempotencyKey });
+    // Generar jobId único
+    const jobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Crear orden (esto es lo que tarda, pero necesitamos el ID)
-    const repair = await odooClient.createRepairOrder(
-      {
-        clientId,
-        equipment,
-        problems,
-        note,
-        branchId,
-        leadSource,
-        deliveryDate,
-        estimatedBudget,
-      },
-      userInfo,
-      userName
-    );
+    logger.debug('Creando orden async:', { jobId, clientId, branchId, model: equipment?.model });
 
-    // IDEMPOTENCY SAVE: Guardar key para futuras verificaciones
-    if (idempotencyKey) {
-      idempotencyService.save(idempotencyKey, repair.id, repair.name, userInfo.userId);
-    }
+    // Guardar job como "processing"
+    pendingJobs.set(jobId, {
+      status: 'processing',
+      userId: userInfo.userId,
+      createdAt: new Date().toISOString(),
+    });
 
-    // Responder inmediatamente con los datos de la orden
+    // Responder INMEDIATAMENTE con el jobId
     res.json({
       success: true,
-      duplicate: false,
-      repair: {
-        id: repair.id,
-        name: repair.name,
-        state: repair.state,
-        partner: repair.partner,
-        branch: repair.branch,
-        description: repair.description,
-      },
+      status: 'processing',
+      jobId,
+      message: 'Creando orden de reparación...',
+    });
+
+    // Crear orden en BACKGROUND (después de responder al frontend)
+    setImmediate(async () => {
+      try {
+        const repair = await odooClient.createRepairOrder(
+          {
+            clientId,
+            equipment,
+            problems,
+            note,
+            branchId,
+            leadSource,
+            deliveryDate,
+            estimatedBudget,
+          },
+          userInfo,
+          userName
+        );
+
+        // IDEMPOTENCY SAVE
+        if (idempotencyKey) {
+          idempotencyService.save(idempotencyKey, repair.id, repair.name, userInfo.userId);
+        }
+
+        // Actualizar job como completado
+        pendingJobs.set(jobId, {
+          status: 'completed',
+          userId: userInfo.userId,
+          createdAt: pendingJobs.get(jobId)?.createdAt,
+          completedAt: new Date().toISOString(),
+          result: {
+            id: repair.id,
+            name: repair.name,
+            state: repair.state,
+            partner: repair.partner,
+            branch: repair.branch,
+            description: repair.description,
+          },
+        });
+
+        logger.debug('Orden creada en background:', repair.name);
+
+        // Enviar push notification al usuario
+        try {
+          await apnsService.sendNotification(userInfo.userId, {
+            title: 'Orden creada',
+            body: `${repair.name} - ${equipment?.brand} ${equipment?.model}`,
+            sound: 'default',
+            data: {
+              type: 'order_created',
+              jobId,
+              repairId: repair.id,
+              repairName: repair.name,
+            },
+          });
+          logger.debug('Push notification enviada para orden:', repair.name);
+        } catch (pushError) {
+          logger.warn('No se pudo enviar push notification:', pushError.message);
+        }
+
+        // Limpiar job después de 5 minutos
+        setTimeout(() => {
+          pendingJobs.delete(jobId);
+        }, 5 * 60 * 1000);
+
+      } catch (error) {
+        logger.error('Error creando orden en background:', error.message);
+
+        // Actualizar job como fallido
+        pendingJobs.set(jobId, {
+          status: 'failed',
+          userId: userInfo.userId,
+          createdAt: pendingJobs.get(jobId)?.createdAt,
+          failedAt: new Date().toISOString(),
+          error: error.message,
+        });
+
+        // Enviar push notification de error
+        try {
+          await apnsService.sendNotification(userInfo.userId, {
+            title: 'Error al crear orden',
+            body: error.message || 'Error desconocido',
+            sound: 'default',
+            data: {
+              type: 'order_error',
+              jobId,
+              error: error.message,
+            },
+          });
+        } catch (pushError) {
+          logger.warn('No se pudo enviar push de error:', pushError.message);
+        }
+
+        // Limpiar job después de 5 minutos
+        setTimeout(() => {
+          pendingJobs.delete(jobId);
+        }, 5 * 60 * 1000);
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/repair/job/:jobId
+ * Verificar estado de un job de creación de orden
+ * El frontend puede hacer polling aquí mientras espera
+ */
+router.get('/job/:jobId', async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const userId = req.user.userId;
+
+    const job = pendingJobs.get(jobId);
+
+    if (!job) {
+      throw new AppError('Job no encontrado o expirado', 404);
+    }
+
+    // Verificar que el job pertenece al usuario
+    if (job.userId !== userId) {
+      throw new AppError('No autorizado', 403);
+    }
+
+    res.json({
+      jobId,
+      status: job.status,
+      createdAt: job.createdAt,
+      completedAt: job.completedAt,
+      failedAt: job.failedAt,
+      repair: job.result || null,
+      error: job.error || null,
     });
   } catch (error) {
     next(error);
