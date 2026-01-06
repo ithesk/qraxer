@@ -432,7 +432,10 @@ class OdooClient {
    * Campos obligatorios según XML de Odoo:
    * - partner_id, imei, lead_source, description, branch_id, schedule_date_str, estimated_budget
    */
-  async createRepairOrder(data, userId, userName) {
+  async createRepairOrder(data, userIdOrInfo, userName) {
+    // Extraer userId del objeto userInfo si es necesario
+    const userId = typeof userIdOrInfo === 'object' ? userIdOrInfo.userId : userIdOrInfo;
+
     log('Creando orden de reparación');
     log('Data recibida:', JSON.stringify(data, null, 2));
 
@@ -460,7 +463,7 @@ class OdooClient {
         const product = await this.findOrCreateProduct(
           data.equipment.model,
           data.equipment.brand,
-          userId
+          userIdOrInfo
         );
         if (product) {
           productId = product.id;
@@ -550,7 +553,7 @@ class OdooClient {
     log('repairData a enviar:', JSON.stringify(repairData, null, 2));
 
     // Crear la orden
-    const repairId = await this.execute('repair.order', 'create', [repairData], {}, userId);
+    const repairId = await this.execute('repair.order', 'create', [repairData], {}, userIdOrInfo);
 
     log('Orden creada con ID:', repairId);
 
@@ -560,7 +563,7 @@ class OdooClient {
     ], {
       fields: ['id', 'name', 'state', 'partner_id', 'description', 'branch_id'],
       limit: 1,
-    }, userId);
+    }, userIdOrInfo);
 
     const repair = repairs[0];
 
@@ -579,7 +582,7 @@ class OdooClient {
       await this.execute('repair.order', 'message_post', [repairId], {
         body: message,
         message_type: 'notification',
-      }, userId);
+      }, userIdOrInfo);
     } catch (e) {
       log('Warning: No se pudo registrar en chatter:', e.message);
     }
