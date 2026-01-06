@@ -557,19 +557,11 @@ class OdooClient {
 
     log('Orden creada con ID:', repairId);
 
-    // Obtener la orden recién creada para obtener el nombre (código)
-    const repairs = await this.execute('repair.order', 'search_read', [
-      [['id', '=', repairId]],
-    ], {
-      fields: ['id', 'name', 'state', 'partner_id', 'description', 'branch_id'],
-      limit: 1,
-    }, userIdOrInfo);
-
-    const repair = repairs[0];
-
-    // Registrar en chatter
-    try {
-      const message = `
+    // Ejecutar tareas secundarias en background (no bloquean respuesta al frontend)
+    setImmediate(async () => {
+      // Registrar en chatter
+      try {
+        const message = `
 <p><strong>Orden creada via QRaxer Quick Creator</strong></p>
 <ul>
   <li><strong>Usuario:</strong> ${userName} (ID: ${userId})</li>
@@ -577,18 +569,17 @@ class OdooClient {
   <li><strong>IMEI:</strong> ${data.equipment?.serial || 'N/A'}</li>
   <li><strong>Fecha:</strong> ${new Date().toISOString()}</li>
 </ul>
-      `.trim();
+        `.trim();
 
-      await this.execute('repair.order', 'message_post', [repairId], {
-        body: message,
-        message_type: 'notification',
-      }, userIdOrInfo);
-    } catch (e) {
-      log('Warning: No se pudo registrar en chatter:', e.message);
-    }
+        await this.execute('repair.order', 'message_post', [repairId], {
+          body: message,
+          message_type: 'notification',
+        }, userIdOrInfo);
+      } catch (e) {
+        log('Warning: No se pudo registrar en chatter:', e.message);
+      }
 
-    // Imprimir etiqueta y recibo en background (no bloquea respuesta al frontend)
-    setImmediate(async () => {
+      // Imprimir etiqueta y recibo
       try {
         log('Ejecutando impresión automática para orden:', repairId);
         await this.execute('repair.order', 'action_print_via_cups', [[repairId]], {}, userIdOrInfo);
@@ -598,13 +589,14 @@ class OdooClient {
       }
     });
 
+    // Retornar inmediatamente con datos mínimos
     return {
-      id: repair.id,
-      name: repair.name,
-      state: repair.state,
-      partner: repair.partner_id ? repair.partner_id[1] : null,
-      branch: repair.branch_id ? repair.branch_id[1] : null,
-      description: repair.description,
+      id: repairId,
+      name: null, // Se puede obtener después si es necesario
+      state: 'draft',
+      partner: null,
+      branch: null,
+      description: description,
     };
   }
 
