@@ -15,6 +15,11 @@ version: '3.8'
 # - APNS_TEAM_ID
 # - APNS_BUNDLE_ID (default: com.qraxer.app)
 # Nota: Crear carpeta 'keys' en el servidor con el archivo .p8
+#
+# Variables opcionales para IMEI Lookup (Supabase):
+# - SUPABASE_URL
+# - SUPABASE_SERVICE_ROLE_KEY
+# - SUPABASE_ANON_KEY
 
 services:
   backend:
@@ -47,6 +52,10 @@ services:
       - APNS_KEY_ID=${APNS_KEY_ID:-}
       - APNS_TEAM_ID=${APNS_TEAM_ID:-}
       - APNS_BUNDLE_ID=${APNS_BUNDLE_ID:-com.qraxer.app}
+      # Supabase IMEI Lookup (opcional - dejar vacío para desactivar)
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
     volumes:
       # Montar carpeta de keys para APNs (crear en servidor si se usa)
       - ./keys:/app/keys:ro
