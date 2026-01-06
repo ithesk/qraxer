@@ -4,6 +4,7 @@ import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Ocr } from '@jcesarmobile/capacitor-ocr';
 import haptics from '../services/haptics';
+import { api } from '../services/api';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -198,37 +199,30 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
   };
 
   const fetchImeiInfo = async (imei) => {
-    const apiKey = import.meta.env.VITE_SICKW_KEY;
-    const service = import.meta.env.VITE_SICKW_SERVICE || 'demo';
-    if (!apiKey) {
-      throw new Error('Falta VITE_SICKW_KEY');
-    }
-    const url = `https://sickw.com/api.php?format=beta&key=${encodeURIComponent(apiKey)}&imei=${encodeURIComponent(imei)}&service=${encodeURIComponent(service)}`;
-    console.log('[mo35] Fetch IMEI:', imei, 'service:', service);
+    console.log('[mo35] Fetch IMEI via backend:', imei);
 
-    if (isNative) {
-      const response = await CapacitorHttp.request({
-        url,
-        method: 'GET',
-      });
-      if (response.status < 200 || response.status >= 300) {
-        console.error('[mo35] Sickw error:', response.status, response.data);
-        throw new Error(`Error API (${response.status})`);
-      }
-      const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-      console.log('[mo35] Sickw response:', data);
-      return data;
-    }
+    try {
+      const data = await api.lookupImei(imei);
+      console.log('[mo35] Backend response:', data);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      const body = await response.text();
-      console.error('[mo35] Sickw error:', response.status, body);
-      throw new Error(`Error API (${response.status})`);
+      // Transform backend response to expected format
+      const summary = data.summary || {};
+      const payload = data.payload?.extracted || {};
+
+      return {
+        result: {
+          'Model Name': summary.modelName || payload.model_name || payload.model_description || 'Sin modelo',
+          'Model Code': payload.model_code || payload.model || null,
+          Manufacturer: summary.manufacturer || payload.manufacturer || '-',
+        },
+        fromCache: data.fromCache,
+        isApple: data.payload?.is_apple || false,
+        raw: data.payload,
+      };
+    } catch (err) {
+      console.error('[mo35] Backend IMEI lookup failed:', err);
+      throw err;
     }
-    const data = await response.json();
-    console.log('[mo35] Sickw response:', data);
-    return data;
   };
 
   useEffect(() => {

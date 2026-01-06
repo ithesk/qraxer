@@ -649,6 +649,47 @@ class ApiService {
 
     return data;
   }
+
+  // === IMEI Lookup Methods ===
+
+  /**
+   * Lookup IMEI information via backend proxy to Supabase Edge Function
+   * @param {string} imei - 15-digit IMEI number
+   * @param {boolean} forceRefresh - Force fresh lookup (bypass cache)
+   * @returns {Promise<{imei: string, fromCache: boolean, summary: Object, payload: Object}>}
+   */
+  async lookupImei(imei, forceRefresh = false) {
+    const response = await this.request('/imei/lookup', {
+      method: 'POST',
+      body: JSON.stringify({ imei, forceRefresh }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al consultar IMEI');
+    }
+
+    return data;
+  }
+
+  /**
+   * Check if IMEI lookup service is available
+   * @returns {Promise<{enabled: boolean, message: string}>}
+   */
+  async getImeiStatus() {
+    const response = await this.request('/imei/status', {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al verificar servicio IMEI');
+    }
+
+    return data;
+  }
 }
 
 export const api = new ApiService();
