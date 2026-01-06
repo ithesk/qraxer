@@ -345,13 +345,19 @@ class ApiService {
   }
 
   /**
-   * Create repair order
+   * Create repair order - MODO ASÍNCRONO
+   * Responde inmediatamente y hace polling hasta que la orden esté lista
+   *
    * @param {Object} orderData - Order data
    * @param {string} idempotencyKey - Optional key to prevent duplicates
+   * @param {Function} onProgress - Optional callback for progress updates
    * @returns {Promise<{success: boolean, duplicate: boolean, repair: Object}>}
    */
-  async createRepairOrder(orderData, idempotencyKey = null) {
-    const payload = { ...orderData };
+  async createRepairOrder(orderData, idempotencyKey = null, onProgress = null) {
+    const payload = {
+      ...orderData,
+      async: true, // Activar modo asíncrono
+    };
     if (idempotencyKey) {
       payload.idempotencyKey = idempotencyKey;
     }
@@ -365,6 +371,90 @@ class ApiService {
 
     if (!response.ok) {
       throw new Error(data.error || 'Error al crear orden');
+    }
+
+    // Si ya está completada (duplicado o modo sync), retornar directo
+    if (data.status === 'completed' || data.repair) {
+      return data;
+    }
+
+    // Modo async: hacer polling hasta completar
+    if (data.status === 'processing' && data.jobId) {
+      if (onProgress) onProgress('Creando orden...');
+      return this._pollJobStatus(data.jobId, onProgress);
+    }
+
+    return data;
+  }
+
+  /**
+   * Poll job status until completed or failed
+   * @private
+   */
+  async _pollJobStatus(jobId, onProgress = null, maxAttempts = 30, intervalMs = 2000) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Esperar antes de verificar (excepto primera vez)
+      if (attempt > 0) {
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+      }
+
+      try {
+        const response = await this.request(`/repair/job/${jobId}`, {
+          method: 'GET',
+        });
+
+        const job = await response.json();
+
+        if (!response.ok) {
+          // Job no encontrado o expirado
+          throw new Error(job.error || 'Error verificando estado');
+        }
+
+        if (job.status === 'completed') {
+          // Orden creada exitosamente
+          return {
+            success: true,
+            duplicate: false,
+            repair: job.repair,
+          };
+        }
+
+        if (job.status === 'failed') {
+          throw new Error(job.error || 'Error al crear orden');
+        }
+
+        // Aún procesando, continuar polling
+        if (onProgress) {
+          const elapsed = (attempt + 1) * intervalMs / 1000;
+          onProgress(`Creando orden... (${Math.round(elapsed)}s)`);
+        }
+
+      } catch (error) {
+        // Si es error de red, reintentar
+        if (attempt < maxAttempts - 1) {
+          console.warn('[API] Poll error, retrying...', error.message);
+          continue;
+        }
+        throw error;
+      }
+    }
+
+    // Timeout - demasiados intentos
+    throw new Error('Timeout: La orden está tardando demasiado. Por favor verifique en el historial.');
+  }
+
+  /**
+   * Check job status (for manual checking)
+   */
+  async getJobStatus(jobId) {
+    const response = await this.request(`/repair/job/${jobId}`, {
+      method: 'GET',
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al verificar job');
     }
 
     return data;

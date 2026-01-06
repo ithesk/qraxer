@@ -68,6 +68,7 @@ export default function QuickCreator() {
   // UI state
   const [view, setView] = useState('form'); // 'form' | 'confirmation'
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState('Creando orden...');
   const [orderResult, setOrderResult] = useState(null);
 
   // Load config on mount
@@ -192,6 +193,7 @@ export default function QuickCreator() {
 
         // Create repair order with idempotency key
         console.log('[QuickCreator] Creating repair order...');
+        setSubmitProgress('Creando orden...');
         const repairData = {
           clientId,
           equipment,
@@ -202,7 +204,12 @@ export default function QuickCreator() {
           deliveryDate,
         };
 
-        const result = await api.createRepairOrder(repairData, idempotencyKey);
+        // Callback para actualizar progreso durante polling
+        const onProgress = (message) => {
+          setSubmitProgress(message);
+        };
+
+        const result = await api.createRepairOrder(repairData, idempotencyKey, onProgress);
         console.log('[QuickCreator] Order created:', result);
 
         // Success! Show confirmation with real data
@@ -595,7 +602,7 @@ export default function QuickCreator() {
           {isSubmitting ? (
             <>
               <div className="spinner" style={{ width: '26px', height: '26px', borderWidth: '3px' }} />
-              <span>Creando orden...</span>
+              <span>{submitProgress}</span>
             </>
           ) : (
             <>
