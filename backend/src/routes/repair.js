@@ -199,16 +199,14 @@ router.post('/generate-qr', async (req, res, next) => {
 
 /**
  * POST /api/repair/create
- * Crear nueva orden de reparación (Quick Creator) - MODO ASÍNCRONO
+ * Crear nueva orden de reparación (Quick Creator)
  *
- * Flujo:
- * 1. Responde inmediatamente con jobId y status: 'processing'
- * 2. Crea la orden en background (Odoo puede tardar 10+ segundos)
- * 3. Envía push notification cuando termina
- * 4. Frontend puede hacer polling a /api/repair/job/:jobId para verificar estado
+ * RETROCOMPATIBILIDAD:
+ * - Si async=true en el body: responde inmediatamente con jobId (nuevo flujo)
+ * - Si async=false o no se envía: espera y responde con la orden (flujo original)
  *
  * Campos requeridos: clientId, equipment, problems, branchId
- * Campos opcionales: note, leadSource, deliveryDate, estimatedBudget, idempotencyKey
+ * Campos opcionales: note, leadSource, deliveryDate, estimatedBudget, idempotencyKey, async
  */
 router.post('/create', async (req, res, next) => {
   try {
@@ -222,6 +220,7 @@ router.post('/create', async (req, res, next) => {
       deliveryDate,
       estimatedBudget,
       idempotencyKey,
+      async: useAsync = false, // Por defecto: modo síncrono (retrocompatible)
     } = req.body;
     const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
@@ -262,10 +261,53 @@ router.post('/create', async (req, res, next) => {
       throw new AppError('Sucursal requerida', 400);
     }
 
-    // Generar jobId único
+    // ============================================================
+    // MODO SÍNCRONO (retrocompatible con frontend existente)
+    // ============================================================
+    if (!useAsync) {
+      logger.debug('Creando orden (modo síncrono):', { clientId, branchId, model: equipment?.model });
+
+      const repair = await odooClient.createRepairOrder(
+        {
+          clientId,
+          equipment,
+          problems,
+          note,
+          branchId,
+          leadSource,
+          deliveryDate,
+          estimatedBudget,
+        },
+        userInfo,
+        userName
+      );
+
+      // IDEMPOTENCY SAVE
+      if (idempotencyKey) {
+        idempotencyService.save(idempotencyKey, repair.id, repair.name, userInfo.userId);
+      }
+
+      // Respuesta compatible con frontend existente
+      return res.json({
+        success: true,
+        duplicate: false,
+        repair: {
+          id: repair.id,
+          name: repair.name,
+          state: repair.state,
+          partner: repair.partner,
+          branch: repair.branch,
+          description: repair.description,
+        },
+      });
+    }
+
+    // ============================================================
+    // MODO ASÍNCRONO (nuevo flujo para frontend actualizado)
+    // ============================================================
     const jobId = `job-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    logger.debug('Creando orden async:', { jobId, clientId, branchId, model: equipment?.model });
+    logger.debug('Creando orden (modo async):', { jobId, clientId, branchId, model: equipment?.model });
 
     // Guardar job como "processing"
     pendingJobs.set(jobId, {
@@ -282,7 +324,7 @@ router.post('/create', async (req, res, next) => {
       message: 'Creando orden de reparación...',
     });
 
-    // Crear orden en BACKGROUND (después de responder al frontend)
+    // Crear orden en BACKGROUND
     setImmediate(async () => {
       try {
         const repair = await odooClient.createRepairOrder(
