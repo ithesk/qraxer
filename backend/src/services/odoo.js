@@ -448,6 +448,7 @@ class OdooClient {
       power: 'No enciende',
       software: 'Software',
       diagnostic: 'Diagnóstico',
+      backglass: 'Tapa trasera',
     };
 
     const problemText = (data.problems || [])
@@ -493,6 +494,9 @@ class OdooClient {
       // Campos del sistema
       state: 'draft',
       user_id: userId,
+
+      // Marcar como creado desde qraxer para evitar auto-print y auto-whatsapp
+      created_from_wizard: true,
 
       // Campo de estado del equipo (encendido/apagado)
       powerstate: data.equipment?.status === 'on',
@@ -799,6 +803,29 @@ class OdooClient {
       { value: 'done', label: 'Hecho' },
       { value: 'cancel', label: 'Cancelado' },
     ];
+  }
+
+  /**
+   * Actualizar presupuesto estimado de una orden de reparación
+   * @param {number} repairId - ID de la orden
+   * @param {number} budget - Presupuesto estimado
+   * @param {number|object} userId - ID del usuario o objeto con credenciales
+   * @returns {Promise<{success: boolean, repair_id: number}>}
+   */
+  async updateRepairBudget(repairId, budget, userId) {
+    log('Actualizando presupuesto:', { repairId, budget, userId });
+
+    const result = await this.execute('repair.order', 'write', [
+      [repairId],
+      { estimated_budget: budget },
+    ], {}, userId);
+
+    log('Presupuesto actualizado:', result);
+
+    return {
+      success: true,
+      repair_id: repairId,
+    };
   }
 
 }

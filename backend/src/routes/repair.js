@@ -958,6 +958,50 @@ router.post('/:id/state', async (req, res, next) => {
 });
 
 /**
+ * PATCH /api/repair/:id/budget
+ * Actualizar presupuesto estimado de una orden de reparación
+ */
+router.patch('/:id/budget', async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { estimated_budget } = req.body;
+    const userInfo = getUserInfo(req);
+
+    if (estimated_budget === undefined || estimated_budget === null) {
+      throw new AppError('Presupuesto requerido', 400);
+    }
+
+    const repairId = parseInt(id, 10);
+    if (isNaN(repairId)) {
+      throw new AppError('ID de reparación inválido', 400);
+    }
+
+    // Verificar que la reparación existe
+    const repair = await odooClient.getRepairById(repairId, userInfo);
+    if (!repair) {
+      throw new AppError('Reparación no encontrada', 404);
+    }
+
+    // Actualizar presupuesto
+    const result = await odooClient.updateRepairBudget(
+      repairId,
+      parseFloat(estimated_budget),
+      userInfo
+    );
+
+    logger.debug('Presupuesto actualizado:', { repairId, budget: estimated_budget });
+
+    res.json({
+      success: true,
+      message: 'Presupuesto actualizado correctamente',
+      repair_id: result.repair_id,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
  * GET /api/repair/by-id/:id
  * Obtener información de una reparación por ID numérico
  * Para uso desde History cuando se selecciona una reparación reciente
