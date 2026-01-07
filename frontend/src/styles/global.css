@@ -872,33 +872,34 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 8px var(--content-padding);
-  max-width: var(--content-max-width);
+  gap: 8px;
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 100%;
   margin: 0 auto;
 }
 
 .bottom-nav-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 0;
   flex: 1;
-  justify-content: space-between;
+  justify-content: space-around;
 }
 
 .bottom-nav-item {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   background: transparent;
   border: 0;
-  padding: 10px 8px;
+  padding: 6px 4px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   color: rgba(0,0,0,0.6);
   min-height: auto;
   border-radius: 0;
-  min-width: 64px;
+  min-width: 0;
 }
 
 .bottom-nav-item:active {
@@ -923,17 +924,21 @@ select {
 }
 
 .bottom-nav-label {
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 /* FAB Button - Center Create */
 .bottom-nav-fab {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
-  min-height: 46px;
-  flex: 0 0 46px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
   border-radius: 999px;
   border: 0;
   background: var(--primary);
@@ -2204,10 +2209,12 @@ body.barcode-scanning-active #root {
 /* 3) Fila interna: más espacio lateral y centrado real */
 .bottom-nav-inner{
   height: var(--tab-height);
-  padding: 0 16px;             /* antes 12px */
+  padding: 0 8px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* 4) Distribución de los items: evita apretamiento horizontal */
@@ -2221,10 +2228,11 @@ body.barcode-scanning-active #root {
 
 /* 5) Cada item: más padding + área táctil iOS + centrado */
 .bottom-nav-item{
-  padding: 6px 8px;            /* antes 2px 2px */
-  min-height: 44px;            /* tap cómodo iOS */
-  min-width: 70px;             /* antes 64px */
-  gap: 6px;                    /* antes 4px */
+  padding: 6px 2px;
+  min-height: 44px;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 4px;
   justify-content: center;
   line-height: 1;
 }
@@ -2253,11 +2261,12 @@ body.barcode-scanning-active #root {
 
 /* 8) FAB: ajusta para que se vea balanceado con el nuevo tab-height */
 .bottom-nav-fab{
-  width: 50px;
-  height: 50px;
-  min-width: 50px;
-  min-height: 50px;
-  transform: translateY(-6px); /* un poco más arriba */
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  flex: 0 0 44px;
+  transform: translateY(-4px);
 }
 
 /* 9) Evita que el contenido se meta debajo del nav (si tu padding-bottom quedó corto) */
@@ -3515,5 +3524,43 @@ body.barcode-scanning-active #root {
   .inventory-count-list {
     grid-template-columns: repeat(4, 1fr);
     max-width: 1200px;
+  }
+}
+
+/* ==========================================
+   SMALL SCREENS FIX - Bottom Nav (< 400px)
+   ========================================== */
+@media (max-width: 400px) {
+  .bottom-nav-inner {
+    padding: 4px 6px !important;
+    gap: 2px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  .bottom-nav-group {
+    gap: 0 !important;
+  }
+
+  .bottom-nav-item {
+    min-width: 0 !important;
+    padding: 4px 2px !important;
+    flex: 1 !important;
+  }
+
+  .bottom-nav-label {
+    font-size: 9px !important;
+  }
+
+  .bottom-nav-fab {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    flex: 0 0 40px !important;
+  }
+
+  .bottom-nav-icon svg {
+    width: 22px !important;
+    height: 22px !important;
   }
 }
