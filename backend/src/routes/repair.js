@@ -87,12 +87,37 @@ router.post('/update-state', async (req, res, next) => {
     const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
 
+    // ========== DEBUG LOGS ==========
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║  [REPAIR/UPDATE-STATE] REQUEST RECIBIDO                  ║');
+    console.log('╠══════════════════════════════════════════════════════════╣');
+    console.log('║  qrContent:', qrContent);
+    console.log('║  typeof qrContent:', typeof qrContent);
+    console.log('║  newState:', newState);
+    console.log('║  note:', note);
+    console.log('║  req.body:', JSON.stringify(req.body, null, 2));
+    console.log('╚══════════════════════════════════════════════════════════╝');
+    console.log('');
+
     if (!qrContent || !newState) {
       throw new AppError('QR y nuevo estado requeridos', 400);
     }
 
     // Validar QR nuevamente
     const qrResult = qrService.validateQRContent(qrContent);
+
+    // ========== DEBUG LOGS ==========
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║  [QR VALIDATION RESULT]                                  ║');
+    console.log('╠══════════════════════════════════════════════════════════╣');
+    console.log('║  qrResult.valid:', qrResult.valid);
+    console.log('║  qrResult.error:', qrResult.error || 'N/A');
+    console.log('║  qrResult.repairCode:', qrResult.repairCode || 'N/A');
+    console.log('║  qrResult.mode:', qrResult.mode || 'N/A');
+    console.log('╚══════════════════════════════════════════════════════════╝');
+    console.log('');
 
     if (!qrResult.valid) {
       throw new AppError(qrResult.error, 400);
@@ -874,6 +899,18 @@ router.post('/:id/state', async (req, res, next) => {
     const { newState, note } = req.body;
     const userInfo = getUserInfo(req);
     const userName = req.user.name || req.user.username;
+
+    // ========== DEBUG LOGS ==========
+    console.log('');
+    console.log('╔══════════════════════════════════════════════════════════╗');
+    console.log('║  [REPAIR/:ID/STATE] REQUEST RECIBIDO                     ║');
+    console.log('╠══════════════════════════════════════════════════════════╣');
+    console.log('║  id (params):', id);
+    console.log('║  newState:', newState);
+    console.log('║  note:', note);
+    console.log('║  req.body:', JSON.stringify(req.body, null, 2));
+    console.log('╚══════════════════════════════════════════════════════════╝');
+    console.log('');
 
     if (!newState) {
       throw new AppError('Nuevo estado requerido', 400);

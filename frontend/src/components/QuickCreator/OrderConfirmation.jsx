@@ -135,7 +135,13 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
   const [photosUploaded, setPhotosUploaded] = useState(0);
   const [previewImage, setPreviewImage] = useState(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [showStateModal, setShowStateModal] = useState(false);
+  const [availableStates, setAvailableStates] = useState([]);
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [changingState, setChangingState] = useState(false);
+  const [currentState, setCurrentState] = useState(null);
   const fileInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   // Display the real order name if synced, or temp ID if pending
   const displayId = realName || tempDisplayId || 'Procesando...';
@@ -145,7 +151,6 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
   const isSyncing = status === 'syncing';
   const isFailed = status === 'failed';
   const isConfirmed = status === 'confirmed';
-  const isProcessing = status === 'processing'; // Order sent, waiting for push notification
   const isQueued = isPending || isSyncing; // Local order waiting to sync
 
   const handleShareWhatsApp = () => {
@@ -214,6 +219,53 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
     }
   };
 
+  // Open gallery for photo
+  const handleOpenGallery = () => {
+    if (galleryInputRef.current) {
+      galleryInputRef.current.click();
+    }
+  };
+
+  // Open state change modal
+  const handleOpenStateModal = async () => {
+    setShowStateModal(true);
+    setLoadingStates(true);
+    try {
+      const states = await api.getRepairStates();
+      setAvailableStates(states);
+    } catch (error) {
+      toast.error('Error al cargar estados');
+      setShowStateModal(false);
+    } finally {
+      setLoadingStates(false);
+    }
+  };
+
+  // Change repair state
+  const handleChangeState = async (newState) => {
+    if (!repairId || changingState) return;
+
+    setChangingState(true);
+    try {
+      // Usar updateRepairState que actualiza por ID (no requiere validación QR)
+      await api.updateRepairState(repairId, newState, null);
+      haptics.success();
+      toast.success('Estado actualizado');
+      setCurrentState(newState);
+      setShowStateModal(false);
+    } catch (error) {
+      haptics.error();
+      toast.error(error.message || 'Error al cambiar estado');
+    } finally {
+      setChangingState(false);
+    }
+  };
+
+  // Take repair (assign to current user)
+  const handleTakeRepair = () => {
+    toast.info('Función próximamente disponible');
+  };
+
   // Determine icon and colors based on status
   const getStatusConfig = () => {
     if (isFailed) {
@@ -230,15 +282,6 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
         bgGradient: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
         shadow: 'rgba(59, 130, 246, 0.4)',
         badge: { bg: '#eff6ff', color: '#2563eb', text: 'Sincronizando...' },
-        spin: true,
-      };
-    }
-    if (isProcessing) {
-      return {
-        icon: <SyncIcon />,
-        bgGradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-        shadow: 'rgba(16, 185, 129, 0.4)',
-        badge: { bg: '#ecfdf5', color: '#059669', text: 'Creando orden...' },
         spin: true,
       };
     }
@@ -325,17 +368,6 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
             color: 'var(--text-muted)',
           }}>
             Se sincronizará automáticamente al recuperar conexión
-          </div>
-        )}
-
-        {/* Processing hint */}
-        {isProcessing && (
-          <div style={{
-            marginTop: '12px',
-            fontSize: '13px',
-            color: 'var(--text-muted)',
-          }}>
-            Recibirás una notificación cuando se complete
           </div>
         )}
       </div>
@@ -426,7 +458,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
           <>
             <button
               className="btn-large"
-              onClick={() => {}}
+              onClick={handleTakeRepair}
               style={{
                 background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%)',
                 color: 'white',
@@ -437,7 +469,10 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
               Tomar reparacion
             </button>
 
-            <button className="btn-secondary btn-large">
+            <button
+              className="btn-secondary btn-large"
+              onClick={handleOpenStateModal}
+            >
               <EditIcon />
               Cambiar estado
             </button>
@@ -564,9 +599,10 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
             bottom: 0,
             background: 'rgba(0, 0, 0, 0.5)',
             display: 'flex',
-            alignItems: 'flex-end',
+            alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
+            padding: '20px',
           }}
         >
           <div
@@ -576,7 +612,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
               width: '100%',
               maxWidth: '500px',
               background: 'var(--card-bg)',
-              borderRadius: '20px 20px 0 0',
+              borderRadius: '16px',
               padding: '20px',
               maxHeight: '80vh',
               overflow: 'auto',
@@ -651,6 +687,115 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
         </div>
       )}
 
+      {/* State Change Modal */}
+      {showStateModal && (
+        <div
+          className="modal-backdrop"
+          onClick={() => !changingState && setShowStateModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              background: 'var(--card-bg)',
+              borderRadius: '16px',
+              padding: '20px',
+              maxHeight: '80vh',
+              overflow: 'auto',
+            }}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '16px',
+            }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                Cambiar Estado
+              </h3>
+              <button
+                onClick={() => setShowStateModal(false)}
+                disabled={changingState}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: '8px',
+                  cursor: 'pointer',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '16px', fontSize: '13px', color: 'var(--text-muted)' }}>
+              Orden: <strong>{displayId}</strong>
+            </div>
+
+            {loadingStates ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div className="spinner spinner-dark" style={{ width: '32px', height: '32px' }} />
+                <p style={{ marginTop: '12px', color: 'var(--text-muted)' }}>Cargando estados...</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {availableStates.map((state) => (
+                  <button
+                    key={state.value}
+                    className="btn-secondary"
+                    onClick={() => handleChangeState(state.value)}
+                    disabled={changingState || currentState === state.value}
+                    style={{
+                      justifyContent: 'flex-start',
+                      padding: '14px 16px',
+                      opacity: currentState === state.value ? 0.5 : 1,
+                    }}
+                  >
+                    {changingState ? (
+                      <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+                    ) : (
+                      <span style={{
+                        width: '10px',
+                        height: '10px',
+                        borderRadius: '50%',
+                        background: state.value === 'done' ? 'var(--success)' :
+                                   state.value === 'draft' ? 'var(--text-muted)' :
+                                   state.value === 'confirmed' ? 'var(--primary)' :
+                                   state.value === 'under_repair' ? 'var(--warning)' :
+                                   state.value === 'ready' ? '#10b981' :
+                                   state.value === 'cancel' ? 'var(--error)' : 'var(--text-muted)',
+                        marginRight: '12px',
+                      }} />
+                    )}
+                    {state.label}
+                    {currentState === state.value && (
+                      <span style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--text-muted)' }}>
+                        (actual)
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Photo Modal */}
       {showPhotoModal && (
         <div
@@ -664,9 +809,10 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
             bottom: 0,
             background: 'rgba(0, 0, 0, 0.5)',
             display: 'flex',
-            alignItems: 'flex-end',
+            alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
+            padding: '20px',
           }}
         >
           <div
@@ -676,7 +822,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
               width: '100%',
               maxWidth: '500px',
               background: 'var(--card-bg)',
-              borderRadius: '20px 20px 0 0',
+              borderRadius: '16px',
               padding: '20px',
               maxHeight: '80vh',
               overflow: 'auto',
@@ -718,7 +864,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
               )}
             </div>
 
-            {/* Hidden file input */}
+            {/* Hidden file inputs - one for camera, one for gallery */}
             <input
               type="file"
               ref={fileInputRef}
@@ -727,8 +873,15 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
               onChange={handlePhotoSelect}
               style={{ display: 'none' }}
             />
+            <input
+              type="file"
+              ref={galleryInputRef}
+              accept="image/*"
+              onChange={handlePhotoSelect}
+              style={{ display: 'none' }}
+            />
 
-            {/* Preview or capture button */}
+            {/* Preview or capture buttons */}
             {previewImage ? (
               <div style={{ marginBottom: '16px' }}>
                 <img
@@ -742,33 +895,66 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
                     background: 'var(--bg)',
                   }}
                 />
-                <button
-                  className="btn-ghost"
-                  onClick={() => {
-                    setPreviewImage(null);
-                    handleOpenCamera();
-                  }}
-                  disabled={isSubmittingPhoto}
-                  style={{ width: '100%', marginTop: '8px' }}
-                >
-                  Tomar otra foto
-                </button>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      setPreviewImage(null);
+                      handleOpenCamera();
+                    }}
+                    disabled={isSubmittingPhoto}
+                    style={{ flex: 1 }}
+                  >
+                    Tomar otra
+                  </button>
+                  <button
+                    className="btn-ghost"
+                    onClick={() => {
+                      setPreviewImage(null);
+                      handleOpenGallery();
+                    }}
+                    disabled={isSubmittingPhoto}
+                    style={{ flex: 1 }}
+                  >
+                    Elegir otra
+                  </button>
+                </div>
               </div>
             ) : (
-              <button
-                className="btn-secondary btn-large"
-                onClick={handleOpenCamera}
-                style={{
-                  width: '100%',
-                  minHeight: '150px',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  border: '2px dashed var(--border)',
-                }}
-              >
-                <CameraIcon />
-                <span>Tomar Foto</span>
-              </button>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  className="btn-secondary btn-large"
+                  onClick={handleOpenCamera}
+                  style={{
+                    flex: 1,
+                    minHeight: '120px',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    border: '2px dashed var(--border)',
+                  }}
+                >
+                  <CameraIcon />
+                  <span style={{ fontSize: '13px' }}>Cámara</span>
+                </button>
+                <button
+                  className="btn-secondary btn-large"
+                  onClick={handleOpenGallery}
+                  style={{
+                    flex: 1,
+                    minHeight: '120px',
+                    flexDirection: 'column',
+                    gap: '8px',
+                    border: '2px dashed var(--border)',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  <span style={{ fontSize: '13px' }}>Galería</span>
+                </button>
+              </div>
             )}
 
             <button
