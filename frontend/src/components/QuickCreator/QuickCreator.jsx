@@ -204,15 +204,32 @@ export default function QuickCreator() {
           deliveryDate,
         };
 
-        // Callback para actualizar progreso durante polling
-        const onProgress = (message) => {
-          setSubmitProgress(message);
-        };
+        const result = await api.createRepairOrder(repairData, idempotencyKey);
+        console.log('[QuickCreator] Order result:', result);
 
-        const result = await api.createRepairOrder(repairData, idempotencyKey, onProgress);
-        console.log('[QuickCreator] Order created:', result);
+        // Modo async: backend respondió con jobId, mostrar confirmación inmediatamente
+        if (result.status === 'processing' && result.jobId) {
+          console.log('[QuickCreator] 🚀 Modo async - mostrando confirmación con jobId:', result.jobId);
+          setOrderResult({
+            localId: null,
+            tempDisplayId: null,
+            realId: null,
+            realName: null,
+            jobId: result.jobId, // Nuevo campo para polling
+            status: 'processing', // Nuevo estado
+            duplicate: false,
+            client,
+            equipment,
+            problems,
+            branchName,
+          });
+          setView('confirmation');
+          haptics.impact(); // Feedback inmediato
+          return; // Salir, el polling se hará en OrderConfirmation
+        }
 
-        // Success! Show confirmation with real data
+        // Modo sync o duplicado: ya tenemos los datos
+        console.log('[QuickCreator] Modo sync - orden completada:', result.repair?.name);
         setOrderResult({
           localId: null,
           tempDisplayId: null,

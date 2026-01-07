@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { api } from '../../services/api';
 import { toast } from '../Toast';
 import haptics from '../../services/haptics';
@@ -114,17 +114,24 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
   const {
     localId,
     tempDisplayId,
-    realId,
-    realName,
-    status,
+    realId: initialRealId,
+    realName: initialRealName,
+    jobId,
+    status: initialStatus,
     client,
     equipment,
     problems,
     duplicate,
   } = orderResult;
 
+  // Estados locales para actualizar cuando el job complete
+  const [currentRealId, setCurrentRealId] = useState(initialRealId);
+  const [currentRealName, setCurrentRealName] = useState(initialRealName);
+  const [currentStatus, setCurrentStatus] = useState(initialStatus);
+  const [pollingError, setPollingError] = useState(null);
+
   // Use realId from the API response (set after successful creation)
-  const repairId = realId;
+  const repairId = currentRealId;
 
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
@@ -143,14 +150,83 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
   const fileInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
-  // Display the real order name if synced, or temp ID if pending
-  const displayId = realName || tempDisplayId || 'Procesando...';
+  // ========== POLLING PARA MODO ASYNC ==========
+  useEffect(() => {
+    if (!jobId || currentStatus !== 'processing') return;
 
-  // Status flags
-  const isPending = status === 'pending';
-  const isSyncing = status === 'syncing';
-  const isFailed = status === 'failed';
-  const isConfirmed = status === 'confirmed';
+    console.log('[OrderConfirmation] 🚀 Iniciando polling para jobId:', jobId);
+    let pollCount = 0;
+    const maxPolls = 60; // 2 minutos máximo (60 * 2s)
+    const pollInterval = 2000; // 2 segundos
+
+    const pollJob = async () => {
+      try {
+        pollCount++;
+        console.log(`[OrderConfirmation] Polling #${pollCount}...`);
+
+        const job = await api.pollJobStatus(jobId);
+        console.log('[OrderConfirmation] Job status:', job.status);
+
+        if (job.status === 'completed' && job.repair) {
+          // Orden creada exitosamente
+          console.log('[OrderConfirmation] ✅ Orden completada:', job.repair.name);
+          setCurrentRealId(job.repair.id);
+          setCurrentRealName(job.repair.name);
+          setCurrentStatus('confirmed');
+          haptics.success();
+          toast.success(`Orden ${job.repair.name} creada`);
+          return true; // Stop polling
+        }
+
+        if (job.status === 'failed') {
+          // Error en background
+          console.error('[OrderConfirmation] ❌ Job falló:', job.error);
+          setPollingError(job.error || 'Error al crear orden');
+          setCurrentStatus('failed');
+          haptics.error();
+          toast.error(job.error || 'Error al crear orden');
+          return true; // Stop polling
+        }
+
+        // Aún procesando, continuar
+        return false;
+      } catch (error) {
+        console.error('[OrderConfirmation] Error en polling:', error);
+        // No detener el polling por errores de red temporales
+        if (pollCount >= maxPolls) {
+          setPollingError('Timeout esperando respuesta del servidor');
+          setCurrentStatus('failed');
+          return true;
+        }
+        return false;
+      }
+    };
+
+    const intervalId = setInterval(async () => {
+      const shouldStop = await pollJob();
+      if (shouldStop || pollCount >= maxPolls) {
+        clearInterval(intervalId);
+      }
+    }, pollInterval);
+
+    // Hacer primera llamada inmediatamente
+    pollJob();
+
+    return () => {
+      console.log('[OrderConfirmation] Limpiando polling interval');
+      clearInterval(intervalId);
+    };
+  }, [jobId, currentStatus]);
+
+  // Display the real order name if synced, or temp ID if pending
+  const displayId = currentRealName || tempDisplayId || (currentStatus === 'processing' ? 'Creando...' : 'Procesando...');
+
+  // Status flags - usar currentStatus
+  const isProcessing = currentStatus === 'processing';
+  const isPending = currentStatus === 'pending';
+  const isSyncing = currentStatus === 'syncing';
+  const isFailed = currentStatus === 'failed';
+  const isConfirmed = currentStatus === 'confirmed';
   const isQueued = isPending || isSyncing; // Local order waiting to sync
 
   const handleShareWhatsApp = () => {
@@ -273,7 +349,17 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
         icon: <ErrorIcon />,
         bgGradient: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
         shadow: 'rgba(239, 68, 68, 0.4)',
-        badge: { bg: '#fef2f2', color: '#dc2626', text: 'Error' },
+        badge: { bg: '#fef2f2', color: '#dc2626', text: pollingError || 'Error' },
+      };
+    }
+    if (isProcessing) {
+      // Nuevo estado: creando orden en background
+      return {
+        icon: <SyncIcon />,
+        bgGradient: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
+        shadow: 'rgba(139, 92, 246, 0.4)',
+        badge: { bg: '#f5f3ff', color: '#7c3aed', text: 'Creando orden...' },
+        spin: true,
       };
     }
     if (isSyncing) {
@@ -349,7 +435,7 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
           fontSize: '13px',
           fontWeight: '600',
         }}>
-          {isSyncing && (
+          {(isSyncing || isProcessing) && (
             <div className="spinner" style={{
               width: '12px',
               height: '12px',
@@ -359,6 +445,17 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
           )}
           {statusConfig.badge.text}
         </span>
+
+        {/* Processing hint */}
+        {isProcessing && (
+          <div style={{
+            marginTop: '12px',
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+          }}>
+            Conectando con el servidor...
+          </div>
+        )}
 
         {/* Offline hint */}
         {isQueued && (

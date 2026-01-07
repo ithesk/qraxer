@@ -400,14 +400,38 @@ class ApiService {
       return data;
     }
 
-    // Modo async: hacer polling hasta completar
+    // Modo async: retornar INMEDIATAMENTE con jobId
+    // El polling se hará en OrderConfirmation para UX no bloqueante
     if (data.status === 'processing' && data.jobId) {
-      console.log('[API] 🚀 Iniciando polling para jobId:', data.jobId);
-      if (onProgress) onProgress('Creando orden...');
-      return this._pollJobStatus(data.jobId, onProgress);
+      console.log('[API] 🚀 Modo async - retornando jobId inmediatamente:', data.jobId);
+      return {
+        success: true,
+        status: 'processing',
+        jobId: data.jobId,
+        message: data.message || 'Creando orden...',
+      };
     }
 
     return data;
+  }
+
+  /**
+   * Poll job status - usado por OrderConfirmation
+   * @param {string} jobId - Job ID to poll
+   * @returns {Promise<{status: string, repair?: Object, error?: string}>}
+   */
+  async pollJobStatus(jobId) {
+    const response = await this.request(`/repair/job/${jobId}`, {
+      method: 'GET',
+    });
+
+    const job = await response.json();
+
+    if (!response.ok) {
+      throw new Error(job.error || 'Error verificando estado');
+    }
+
+    return job;
   }
 
   /**
