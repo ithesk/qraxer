@@ -2081,6 +2081,109 @@ body.barcode-scanning-active #root {
   font-size: 13px;
 }
 
+.mo35-ocr-imei-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.mo35-ocr-item--clickable {
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.mo35-ocr-item--clickable:hover {
+  background: var(--bg);
+}
+
+.mo35-ocr-item--clickable:active {
+  transform: scale(0.98);
+}
+
+.mo35-ocr-item--expanded {
+  background: var(--card-bg);
+}
+
+.mo35-ocr-expand-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  margin-left: auto;
+}
+
+.mo35-ocr-expand-icon--open {
+  transform: rotate(0deg);
+}
+
+.mo35-ocr-details {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.mo35-ocr-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.mo35-ocr-detail--warning {
+  color: var(--warning, #f59e0b);
+}
+
+.mo35-ocr-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.mo35-ocr-value--good {
+  color: var(--success, #22c55e);
+  font-weight: 600;
+}
+
+.mo35-ocr-value--bad {
+  color: var(--error, #ef4444);
+  font-weight: 600;
+}
+
+.mo35-ocr-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.mo35-ocr-badge--apple {
+  background: linear-gradient(135deg, #555 0%, #333 100%);
+  color: white;
+}
+
+.mo35-ocr-cache-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 8px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.mo35-ocr-loading {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 0;
+  font-style: italic;
+}
+
+.mo35-ocr-error-inline {
+  font-size: 11px;
+  color: var(--error, #ef4444);
+  margin-top: 4px;
+}
+
 
 /* ==========================================
    FIX: Bottom Nav (icons/labels "ahogados")

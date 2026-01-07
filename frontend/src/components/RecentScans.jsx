@@ -21,7 +21,7 @@ const ClockIcon = () => (
   </svg>
 );
 
-export default function RecentScans({ refreshKey = 0 }) {
+export default function RecentScans({ refreshKey = 0, onOpenRepair }) {
   const [scans, setScans] = useState(() => scanHistory.getScans());
 
   useEffect(() => {
@@ -56,14 +56,19 @@ export default function RecentScans({ refreshKey = 0 }) {
         {scans.map((scan, index) => (
           <div
             key={`${scan.repairId}-${scan.timestamp}`}
+            onClick={() => onOpenRepair?.(scan)}
             style={{
               padding: '12px 16px',
               borderBottom: index < scans.length - 1 ? '1px solid var(--border-light)' : 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              gap: '12px'
+              gap: '12px',
+              cursor: onOpenRepair ? 'pointer' : 'default',
+              transition: 'background-color 0.15s ease',
             }}
+            onMouseEnter={(e) => onOpenRepair && (e.currentTarget.style.backgroundColor = 'var(--hover-bg)')}
+            onMouseLeave={(e) => onOpenRepair && (e.currentTarget.style.backgroundColor = '')}
           >
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{

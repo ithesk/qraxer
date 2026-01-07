@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Ocr } from '@jcesarmobile/capacitor-ocr';
 import haptics from '../services/haptics';
@@ -63,8 +63,11 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
   const [imeiInfo, setImeiInfo] = useState({});
   const [history, setHistory] = useState([]);
   const [search, setSearch] = useState('');
+  const [expandedHistoryImei, setExpandedHistoryImei] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState({});
   const portalTarget = useMemo(() => (typeof document !== 'undefined' ? document.body : null), []);
-  const HISTORY_KEY = 'mo35_imei_history_v1';
+  const HISTORY_KEY = 'mo35_imei_history_v2';
+  const HISTORY_KEY_OLD = 'mo35_imei_history_v1';
 
   const processPhoto = async (photo) => {
     if (!photo?.path) {
@@ -171,25 +174,55 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      // Intentar cargar historial nuevo (v2)
+      let saved = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+
+      // Si no hay historial v2, intentar migrar desde v1
+      if (saved.length === 0) {
+        const oldSaved = JSON.parse(localStorage.getItem(HISTORY_KEY_OLD) || '[]');
+        if (oldSaved.length > 0) {
+          // Migrar: agregar campos faltantes
+          saved = oldSaved.map((item) => ({
+            ...item,
+            extracted: item.extracted || {},
+            isApple: item.isApple || false,
+            fromCache: item.fromCache || false,
+          }));
+          // Guardar en v2
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(saved));
+        }
+      }
+
       setHistory(saved);
-    } catch (e) {}
+    } catch (e) {
+      console.error('[mo35] Error loading history:', e);
+    }
   }, []);
 
   const persistHistory = (entries) => {
     setHistory(entries);
     try {
       localStorage.setItem(HISTORY_KEY, JSON.stringify(entries));
-    } catch (e) {}
+    } catch (e) {
+      console.error('[mo35] Error saving history:', e);
+    }
   };
 
   const upsertHistory = (imei, info) => {
     const now = Date.now();
+    // Guardar datos completos para poder mostrarlos luego
+    const rawData = info?.raw;
+    const extracted = rawData?.raw?.extracted || rawData?.payload?.extracted || rawData?.extracted || {};
+    const isApple = rawData?.isApple || rawData?.raw?.is_apple || rawData?.payload?.is_apple || false;
+
     const entry = {
       imei,
       modelName: info?.modelName || 'Sin modelo',
       manufacturer: info?.manufacturer || '-',
       lastAt: now,
+      isApple,
+      extracted, // Guardar datos extraídos completos
+      fromCache: rawData?.fromCache || false,
     };
     const next = [
       entry,
@@ -217,6 +250,7 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
         },
         fromCache: data.fromCache,
         isApple: data.payload?.is_apple || false,
+        extracted: data.payload?.extracted || {},
         raw: data.payload,
       };
     } catch (err) {
@@ -264,6 +298,109 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
     );
   });
 
+  // Manejar click en elemento del historial
+  const handleHistoryClick = async (item) => {
+    haptics.selection();
+
+    // Toggle: si ya está expandido, colapsar
+    if (expandedHistoryImei === item.imei) {
+      setExpandedHistoryImei(null);
+      return;
+    }
+
+    // Si ya tiene datos extraídos, solo expandir
+    if (item.extracted && Object.keys(item.extracted).length > 0) {
+      setExpandedHistoryImei(item.imei);
+      return;
+    }
+
+    // Si no tiene datos, hacer lookup
+    setHistoryLoading((prev) => ({ ...prev, [item.imei]: true }));
+    setExpandedHistoryImei(item.imei);
+
+    try {
+      const data = await fetchImeiInfo(item.imei);
+      const extracted = data?.extracted || data?.raw?.extracted || {};
+      const isApple = data?.isApple || false;
+
+      // Actualizar historial con los nuevos datos
+      const updatedHistory = history.map((h) =>
+        h.imei === item.imei
+          ? { ...h, extracted, isApple, fromCache: data?.fromCache || false }
+          : h
+      );
+      persistHistory(updatedHistory);
+    } catch (err) {
+      console.error('[mo35] Error fetching history item:', err);
+    } finally {
+      setHistoryLoading((prev) => ({ ...prev, [item.imei]: false }));
+    }
+  };
+
+  // Renderizar detalles de un elemento
+  const renderDetails = (extracted, isApple, fromCache) => (
+    <div className="mo35-ocr-details">
+      {fromCache && <span className="mo35-ocr-cache-badge">Cache</span>}
+      {isApple && <div className="mo35-ocr-badge mo35-ocr-badge--apple">Apple</div>}
+      {extracted.serial_number && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">Serial:</span> {extracted.serial_number}
+        </div>
+      )}
+      {extracted.sim_lock && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">SIM Lock:</span>
+          <span className={`mo35-ocr-value ${extracted.sim_lock.toLowerCase().includes('unlock') ? 'mo35-ocr-value--good' : 'mo35-ocr-value--bad'}`}>
+            {extracted.sim_lock}
+          </span>
+        </div>
+      )}
+      {extracted.locked_carrier && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">Carrier:</span> {extracted.locked_carrier}
+        </div>
+      )}
+      {extracted.icloud_lock && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">iCloud:</span>
+          <span className={`mo35-ocr-value ${extracted.icloud_lock.toLowerCase().includes('off') || extracted.icloud_lock.toLowerCase().includes('clean') ? 'mo35-ocr-value--good' : 'mo35-ocr-value--bad'}`}>
+            {extracted.icloud_lock}
+          </span>
+        </div>
+      )}
+      {extracted.warranty_status && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">Garantia:</span> {extracted.warranty_status}
+        </div>
+      )}
+      {extracted.purchase_country && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">Pais:</span> {extracted.purchase_country}
+        </div>
+      )}
+      {extracted.estimated_purchase_date && (
+        <div className="mo35-ocr-detail">
+          <span className="mo35-ocr-label">Compra:</span> {extracted.estimated_purchase_date}
+        </div>
+      )}
+      {extracted.replaced_device && extracted.replaced_device !== 'No' && (
+        <div className="mo35-ocr-detail mo35-ocr-detail--warning">
+          <span className="mo35-ocr-label">Reemplazado:</span> {extracted.replaced_device}
+        </div>
+      )}
+      {extracted.demo_unit && extracted.demo_unit !== 'No' && (
+        <div className="mo35-ocr-detail mo35-ocr-detail--warning">
+          <span className="mo35-ocr-label">Demo:</span> {extracted.demo_unit}
+        </div>
+      )}
+      {extracted.refurbished_device && extracted.refurbished_device !== 'No' && (
+        <div className="mo35-ocr-detail mo35-ocr-detail--warning">
+          <span className="mo35-ocr-label">Refurbished:</span> {extracted.refurbished_device}
+        </div>
+      )}
+    </div>
+  );
+
   const screen = (
     <div className={`mo35-ocr-screen ${fullScreen ? 'mo35-ocr-screen--full' : 'mo35-ocr-screen--inline'}`}>
       <div className="mo35-ocr-header">
@@ -296,14 +433,35 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
           <div className="mo35-ocr-empty">Aun no hay resultados</div>
         ) : (
           <div className="mo35-ocr-list">
-            {imeiList.map((imei) => (
-              <div key={imei} className="mo35-ocr-item">
-                <div className="mo35-ocr-imei">{imei}</div>
-                <div className="mo35-ocr-model">
-                  {imeiInfo[imei]?.modelName || 'Consultando...'}
+            {imeiList.map((imei) => {
+              const info = imeiInfo[imei];
+              const raw = info?.raw;
+              const extracted = raw?.extracted || raw?.raw?.extracted || {};
+              const isApple = raw?.isApple || false;
+
+              return (
+                <div key={imei} className="mo35-ocr-item mo35-ocr-item--expanded">
+                  <div className="mo35-ocr-imei-header">
+                    <div className="mo35-ocr-imei">{imei}</div>
+                    {raw?.fromCache && <span className="mo35-ocr-cache-badge">Cache</span>}
+                  </div>
+                  <div className="mo35-ocr-model">
+                    {info?.modelName || 'Consultando...'}
+                  </div>
+                  {info?.manufacturer && info.manufacturer !== '-' && (
+                    <div className="mo35-ocr-detail">
+                      <span className="mo35-ocr-label">Fabricante:</span> {info.manufacturer}
+                    </div>
+                  )}
+                  {info && !info.error && Object.keys(extracted).length > 0 && (
+                    renderDetails(extracted, isApple, raw?.fromCache)
+                  )}
+                  {info?.error && (
+                    <div className="mo35-ocr-error-inline">{info.error}</div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -329,12 +487,39 @@ export default function Mo35OcrScreen({ onClose, fullScreen = true }) {
           <div className="mo35-ocr-empty">Aun no hay historial</div>
         ) : (
           <div className="mo35-ocr-list">
-            {filteredHistory.map((item) => (
-              <div key={item.imei} className="mo35-ocr-item">
-                <div className="mo35-ocr-imei">{item.imei}</div>
-                <div className="mo35-ocr-model">{item.modelName}</div>
-              </div>
-            ))}
+            {filteredHistory.map((item) => {
+              const isExpanded = expandedHistoryImei === item.imei;
+              const isLoading = historyLoading[item.imei];
+              const hasDetails = item.extracted && Object.keys(item.extracted).length > 0;
+
+              return (
+                <div
+                  key={item.imei}
+                  className={`mo35-ocr-item mo35-ocr-item--clickable ${isExpanded ? 'mo35-ocr-item--expanded' : ''}`}
+                  onClick={() => handleHistoryClick(item)}
+                >
+                  <div className="mo35-ocr-imei-header">
+                    <div className="mo35-ocr-imei">{item.imei}</div>
+                    <span className={`mo35-ocr-expand-icon ${isExpanded ? 'mo35-ocr-expand-icon--open' : ''}`}>
+                      {isLoading ? '...' : (isExpanded ? '▼' : '▶')}
+                    </span>
+                  </div>
+                  <div className="mo35-ocr-model">{item.modelName}</div>
+                  {item.manufacturer && item.manufacturer !== '-' && (
+                    <div className="mo35-ocr-detail">
+                      <span className="mo35-ocr-label">Fabricante:</span> {item.manufacturer}
+                    </div>
+                  )}
+                  {isExpanded && isLoading && (
+                    <div className="mo35-ocr-loading">Cargando detalles...</div>
+                  )}
+                  {isExpanded && hasDetails && renderDetails(item.extracted, item.isApple, item.fromCache)}
+                  {isExpanded && !isLoading && !hasDetails && (
+                    <div className="mo35-ocr-empty">Sin detalles disponibles</div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
