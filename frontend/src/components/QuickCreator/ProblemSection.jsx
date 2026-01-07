@@ -55,6 +55,13 @@ const DiagnosticIcon = () => (
   </svg>
 );
 
+const BackglassIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <rect x="5" y="2" width="14" height="20" rx="2" />
+    <path d="M9 6h6" />
+  </svg>
+);
+
 const PROBLEMS = [
   { id: 'screen', label: 'Pantalla', icon: ScreenIcon },
   { id: 'battery', label: 'Batería', icon: BatteryIcon },
@@ -62,6 +69,7 @@ const PROBLEMS = [
   { id: 'power', label: 'No enciende', icon: PowerIcon },
   { id: 'software', label: 'Software', icon: SoftwareIcon },
   { id: 'diagnostic', label: 'Diagnóstico', icon: DiagnosticIcon },
+  { id: 'backglass', label: 'Tapa trasera', icon: BackglassIcon },
 ];
 
 export default function ProblemSection({ problems, note, onProblemsChange, onNoteChange, disabled }) {

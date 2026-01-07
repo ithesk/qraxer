@@ -787,6 +787,27 @@ class ApiService {
     return data;
   }
 
+  /**
+   * Update repair estimated budget
+   * @param {number} repairId - Repair order ID
+   * @param {number} budget - Estimated budget amount
+   * @returns {Promise<{success: boolean, repair_id: number}>}
+   */
+  async updateRepairBudget(repairId, budget) {
+    const response = await this.request(`/repair/${repairId}/budget`, {
+      method: 'PATCH',
+      body: JSON.stringify({ estimated_budget: budget }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Error al guardar presupuesto');
+    }
+
+    return data;
+  }
+
   // === IMEI Lookup Methods ===
 
   /**

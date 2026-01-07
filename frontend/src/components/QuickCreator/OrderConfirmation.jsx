@@ -100,6 +100,14 @@ const CheckSmallIcon = () => (
   </svg>
 );
 
+// Money icon for budget
+const MoneyIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <line x1="12" y1="1" x2="12" y2="23" />
+    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+  </svg>
+);
+
 // Problem labels for display
 const problemLabels = {
   screen: 'Pantalla',
@@ -108,6 +116,7 @@ const problemLabels = {
   power: 'No enciende',
   software: 'Software',
   diagnostic: 'Diagnostico',
+  backglass: 'Tapa trasera',
 };
 
 export default function OrderConfirmation({ orderResult, onCreateAnother, onRetry }) {
@@ -147,6 +156,9 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
   const [loadingStates, setLoadingStates] = useState(false);
   const [changingState, setChangingState] = useState(false);
   const [currentState, setCurrentState] = useState(null);
+  const [estimatedBudget, setEstimatedBudget] = useState('');
+  const [isUpdatingBudget, setIsUpdatingBudget] = useState(false);
+  const [budgetSaved, setBudgetSaved] = useState(false);
   const fileInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
@@ -342,6 +354,24 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
     toast.info('Función próximamente disponible');
   };
 
+  // Save estimated budget
+  const handleSaveBudget = async () => {
+    if (!estimatedBudget || !repairId || isUpdatingBudget) return;
+
+    setIsUpdatingBudget(true);
+    try {
+      await api.updateRepairBudget(repairId, parseFloat(estimatedBudget));
+      haptics.success();
+      toast.success('Presupuesto guardado');
+      setBudgetSaved(true);
+    } catch (error) {
+      haptics.error();
+      toast.error(error.message || 'Error al guardar presupuesto');
+    } finally {
+      setIsUpdatingBudget(false);
+    }
+  };
+
   // Determine icon and colors based on status
   const getStatusConfig = () => {
     if (isFailed) {
@@ -508,6 +538,83 @@ export default function OrderConfirmation({ orderResult, onCreateAnother, onRetr
           <div style={{ marginTop: '4px' }}><strong>Problema:</strong> {problems.map(p => problemLabels[p] || p).join(', ')}</div>
         </div>
       </div>
+
+      {/* Estimated Budget Section - Only when confirmed */}
+      {isConfirmed && repairId && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            marginBottom: '12px',
+          }}>
+            <div style={{
+              width: '36px',
+              height: '36px',
+              background: budgetSaved ? 'var(--success)' : 'var(--border-light)',
+              borderRadius: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: budgetSaved ? 'white' : 'var(--text-muted)',
+            }}>
+              {budgetSaved ? <CheckSmallIcon /> : <MoneyIcon />}
+            </div>
+            <div>
+              <div style={{ fontWeight: '600', fontSize: '15px' }}>Presupuesto estimado</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                {budgetSaved ? 'Guardado' : 'Opcional'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <span style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+                fontWeight: '500',
+              }}>
+                $
+              </span>
+              <input
+                type="number"
+                placeholder="0.00"
+                value={estimatedBudget}
+                onChange={(e) => {
+                  setEstimatedBudget(e.target.value);
+                  setBudgetSaved(false);
+                }}
+                disabled={isUpdatingBudget}
+                style={{
+                  paddingLeft: '28px',
+                  width: '100%',
+                }}
+              />
+            </div>
+            <button
+              className="btn-primary"
+              onClick={handleSaveBudget}
+              disabled={!estimatedBudget || isUpdatingBudget || budgetSaved}
+              style={{
+                minWidth: '100px',
+                opacity: (!estimatedBudget || isUpdatingBudget || budgetSaved) ? 0.6 : 1,
+              }}
+            >
+              {isUpdatingBudget ? (
+                <div className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px' }} />
+              ) : budgetSaved ? (
+                <CheckSmallIcon />
+              ) : (
+                'Guardar'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Error state */}
       {isFailed && (

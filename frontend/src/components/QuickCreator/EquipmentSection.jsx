@@ -154,12 +154,13 @@ const ChargingIcon = () => (
 );
 
 // Functionality checks configuration
+// IDs deben coincidir con los campos de Odoo repair.order
 const FUNCTIONALITY_CHECKS = [
-  { id: 'faceId', label: 'Face ID / Touch ID', icon: FaceIdIcon },
-  { id: 'frontCamera', label: 'Cámara frontal', icon: CameraFrontIcon },
-  { id: 'backCamera', label: 'Cámara trasera', icon: CameraBackIcon },
-  { id: 'touchScreen', label: 'Pantalla táctil', icon: TouchIcon },
-  { id: 'screenDisplay', label: 'Pantalla (sin manchas)', icon: ScreenIcon },
+  { id: 'faceid', label: 'Face ID / Touch ID', icon: FaceIdIcon },
+  { id: 'camerafront', label: 'Cámara frontal', icon: CameraFrontIcon },
+  { id: 'camera', label: 'Cámara trasera', icon: CameraBackIcon },
+  { id: 'touch', label: 'Pantalla táctil', icon: TouchIcon },
+  { id: 'screen', label: 'Pantalla (sin manchas)', icon: ScreenIcon },
   { id: 'buttons', label: 'Botones', icon: ButtonsIcon },
   { id: 'speaker', label: 'Altavoz', icon: SpeakerIcon },
   { id: 'microphone', label: 'Micrófono', icon: MicIcon },
