@@ -16,11 +16,22 @@ router.use(authMiddleware);
 /**
  * POST /api/devices/register
  * Registrar token de dispositivo para push notifications
+ *
+ * NOTA: Este endpoint SOLO guarda el token. NO envía ninguna notificación.
+ * Las notificaciones push solo se envían desde sendCheckinNotification() o test-push.
  */
 router.post('/register', async (req, res, next) => {
   try {
     const { token, platform } = req.body;
     const userId = req.user.userId;
+    const userName = req.user.name || req.user.username;
+
+    logger.info(`[DEVICES] 🔑 Registro de token iniciado`);
+    logger.info(`[DEVICES] 🔑 Usuario: ${userId} (${userName})`);
+    logger.info(`[DEVICES] 🔑 Plataforma: ${platform || 'ios'}`);
+    logger.info(`[DEVICES] 🔑 Token preview: ${token?.substring(0, 20)}...`);
+    logger.info(`[DEVICES] 🔑 Timestamp: ${new Date().toISOString()}`);
+    logger.info(`[DEVICES] 🔑 APNs habilitado: ${apnsService.isEnabled()}`);
 
     if (!token) {
       throw new AppError('Token de dispositivo requerido', 400);
@@ -35,7 +46,7 @@ router.post('/register', async (req, res, next) => {
 
     apnsService.registerToken(userId, token, devicePlatform);
 
-    logger.info(`[DEVICES] Token registrado - Usuario: ${userId}, Plataforma: ${devicePlatform}`);
+    logger.info(`[DEVICES] ✅ Token registrado correctamente - NO se envió ninguna notificación`);
 
     res.json({
       success: true,
@@ -43,6 +54,7 @@ router.post('/register', async (req, res, next) => {
       pushEnabled: apnsService.isEnabled(),
     });
   } catch (error) {
+    logger.error(`[DEVICES] ❌ Error registrando token:`, error.message);
     next(error);
   }
 });
