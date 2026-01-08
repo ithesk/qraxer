@@ -7,6 +7,7 @@
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { api } from './api';
+import debugLogs from './debugLogs';
 
 class PushNotificationsService {
   constructor() {
@@ -77,8 +78,9 @@ class PushNotificationsService {
   setupListeners() {
     // Token recibido - registrar en backend
     PushNotifications.addListener('registration', async (token) => {
-      console.log('[PUSH] 🔑 Token recibido:', token.value?.substring(0, 20) + '...');
-      console.log('[PUSH] 🔑 Timestamp:', new Date().toISOString());
+      const tokenPreview = token.value?.substring(0, 20) + '...';
+      console.log('[PUSH] 🔑 Token recibido:', tokenPreview);
+      debugLogs.push('TOKEN_RECEIVED', { tokenPreview });
       this.token = token.value;
 
       // Registrar token en el backend
@@ -88,24 +90,29 @@ class PushNotificationsService {
     // Error de registro
     PushNotifications.addListener('registrationError', (error) => {
       console.error('[PUSH] ❌ Error de registro:', error);
+      debugLogs.push('REGISTRATION_ERROR', { error: error?.message || String(error) });
     });
 
     // Notificación recibida (app en foreground)
     PushNotifications.addListener('pushNotificationReceived', (notification) => {
-      console.log('[PUSH] 📬 Notificación PUSH recibida (foreground):');
-      console.log('[PUSH] 📬 Title:', notification.title);
-      console.log('[PUSH] 📬 Body:', notification.body);
-      console.log('[PUSH] 📬 Data:', JSON.stringify(notification.data));
-      console.log('[PUSH] 📬 Timestamp:', new Date().toISOString());
+      console.log('[PUSH] 📬 Notificación PUSH recibida (foreground):', notification.title);
+      debugLogs.push('NOTIFICATION_RECEIVED', {
+        title: notification.title,
+        body: notification.body,
+        data: notification.data,
+      });
       this.notifyListeners('received', notification);
     });
 
     // Notificación abierta (usuario tocó la notificación)
     PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-      console.log('[PUSH] 👆 Acción realizada (tocó notificación):');
-      console.log('[PUSH] 👆 ActionId:', action.actionId);
-      console.log('[PUSH] 👆 Notification:', JSON.stringify(action.notification));
-      console.log('[PUSH] 👆 Timestamp:', new Date().toISOString());
+      console.log('[PUSH] 👆 Acción realizada (tocó notificación):', action.actionId);
+      debugLogs.push('NOTIFICATION_TAPPED', {
+        actionId: action.actionId,
+        title: action.notification?.title,
+        body: action.notification?.body,
+        data: action.notification?.data,
+      });
       this.notifyListeners('action', action);
     });
   }

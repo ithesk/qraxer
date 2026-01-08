@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { toast } from './Toast';
 import localNotificationsService from '../services/localNotifications';
+import debugLogs from '../services/debugLogs';
 
 // Storage keys for user preferences
 export const USER_PREFS_KEYS = {
@@ -56,6 +57,23 @@ const BellIcon = () => (
   </svg>
 );
 
+const LogIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+    <polyline points="14 2 14 8 20 8" />
+    <line x1="16" y1="13" x2="8" y2="13" />
+    <line x1="16" y1="17" x2="8" y2="17" />
+    <polyline points="10 9 9 9 8 9" />
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+  </svg>
+);
+
 export default function SettingsScreen({ onBack }) {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
@@ -63,6 +81,8 @@ export default function SettingsScreen({ onBack }) {
   const [showBranchPicker, setShowBranchPicker] = useState(false);
   const [pendingNotifications, setPendingNotifications] = useState([]);
   const [notificationsSupported] = useState(localNotificationsService.isSupported());
+  const [logs, setLogs] = useState([]);
+  const [showLogs, setShowLogs] = useState(false);
 
   // Load pending notifications
   useEffect(() => {
@@ -74,6 +94,22 @@ export default function SettingsScreen({ onBack }) {
     };
     loadPendingNotifications();
   }, [notificationsSupported]);
+
+  // Load debug logs
+  const loadLogs = () => {
+    setLogs(debugLogs.getLogs());
+  };
+
+  const handleClearLogs = () => {
+    debugLogs.clear();
+    setLogs([]);
+    toast.success('Logs limpiados');
+  };
+
+  const handleShowLogs = () => {
+    loadLogs();
+    setShowLogs(true);
+  };
 
   // Test notification
   const handleTestNotification = async () => {
@@ -288,7 +324,124 @@ export default function SettingsScreen({ onBack }) {
             </p>
           </div>
         )}
+
+        {/* Section: Debug Logs */}
+        <div className="settings-section" style={{ marginTop: '24px' }}>
+          <div className="settings-section-title">Debug</div>
+
+          <button
+            className="settings-item"
+            onClick={handleShowLogs}
+          >
+            <div className="settings-item-icon">
+              <LogIcon />
+            </div>
+            <div className="settings-item-content">
+              <div className="settings-item-label">Ver logs de notificaciones</div>
+              <div className="settings-item-value">
+                Historial de eventos
+              </div>
+            </div>
+            <ChevronIcon />
+          </button>
+        </div>
       </div>
+
+      {/* Debug Logs Modal */}
+      {showLogs && (
+        <div className="settings-modal-backdrop" onClick={() => setShowLogs(false)}>
+          <div className="settings-picker" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh' }}>
+            <div className="settings-picker-header">
+              <span className="settings-picker-title">Logs de Debug</span>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={handleClearLogs}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <TrashIcon /> Limpiar
+                </button>
+                <button
+                  className="settings-picker-close"
+                  onClick={() => setShowLogs(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+            <div style={{
+              padding: '12px',
+              overflowY: 'auto',
+              maxHeight: 'calc(80vh - 60px)',
+            }}>
+              {logs.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  padding: '40px 20px',
+                }}>
+                  No hay logs registrados
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {logs.map((log) => (
+                    <div
+                      key={log.id}
+                      style={{
+                        padding: '10px 12px',
+                        background: 'var(--bg)',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        marginBottom: '4px',
+                      }}>
+                        <span style={{
+                          fontWeight: '600',
+                          color: log.category === 'PUSH' ? '#3b82f6' : '#10b981',
+                        }}>
+                          {log.category}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                          {new Date(log.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <div style={{ color: 'var(--text)', marginBottom: '4px' }}>
+                        {log.event}
+                      </div>
+                      {Object.keys(log.data || {}).length > 0 && (
+                        <pre style={{
+                          margin: 0,
+                          padding: '6px 8px',
+                          background: 'var(--card-bg)',
+                          borderRadius: '4px',
+                          fontSize: '10px',
+                          color: 'var(--text-muted)',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                        }}>
+                          {JSON.stringify(log.data, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Branch Picker Modal */}
       {showBranchPicker && (

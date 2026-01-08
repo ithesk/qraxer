@@ -1,5 +1,6 @@
 import { LocalNotifications } from '@capacitor/local-notifications';
 import { Capacitor } from '@capacitor/core';
+import debugLogs from './debugLogs';
 
 // IDs fijos para las notificaciones programadas
 const NOTIFICATION_IDS = {
@@ -204,12 +205,14 @@ const localNotificationsService = {
     const listener = LocalNotifications.addListener(
       'localNotificationActionPerformed',
       (notification) => {
-        console.log('[LocalNotifications] 👆 Action performed:');
-        console.log('[LocalNotifications] 👆 ID:', notification.notification?.id);
-        console.log('[LocalNotifications] 👆 Title:', notification.notification?.title);
-        console.log('[LocalNotifications] 👆 Body:', notification.notification?.body);
-        console.log('[LocalNotifications] 👆 Extra:', JSON.stringify(notification.notification?.extra));
-        console.log('[LocalNotifications] 👆 Timestamp:', new Date().toISOString());
+        const n = notification.notification;
+        console.log('[LocalNotifications] 👆 Action performed:', n?.id, n?.title);
+        debugLogs.local('NOTIFICATION_TAPPED', {
+          id: n?.id,
+          title: n?.title,
+          body: n?.body,
+          extra: n?.extra,
+        });
         callback(notification);
       }
     );
@@ -226,12 +229,13 @@ const localNotificationsService = {
     const listener = LocalNotifications.addListener(
       'localNotificationReceived',
       (notification) => {
-        console.log('[LocalNotifications] 📬 LOCAL Notification received (foreground):');
-        console.log('[LocalNotifications] 📬 ID:', notification.id);
-        console.log('[LocalNotifications] 📬 Title:', notification.title);
-        console.log('[LocalNotifications] 📬 Body:', notification.body);
-        console.log('[LocalNotifications] 📬 Extra:', JSON.stringify(notification.extra));
-        console.log('[LocalNotifications] 📬 Timestamp:', new Date().toISOString());
+        console.log('[LocalNotifications] 📬 LOCAL received:', notification.id, notification.title);
+        debugLogs.local('NOTIFICATION_RECEIVED', {
+          id: notification.id,
+          title: notification.title,
+          body: notification.body,
+          extra: notification.extra,
+        });
         if (callback) callback(notification);
       }
     );
