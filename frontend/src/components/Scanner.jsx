@@ -219,6 +219,8 @@ export default function Scanner({ onScan, onHistoryVisibilityChange }) {
         repairId: data.repair.id,
         repairName: data.repair.name,
         currentState: data.repair.currentState,
+        partner: data.repair.partner,
+        product: data.repair.product,
       });
       // Success - found in system
       haptics.success();

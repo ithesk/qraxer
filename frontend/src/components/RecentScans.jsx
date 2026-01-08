@@ -72,21 +72,38 @@ export default function RecentScans({ refreshKey = 0, onOpenRepair }) {
           >
             <div style={{ minWidth: 0, flex: 1 }}>
               <div style={{
-                fontSize: '14px',
-                fontWeight: '600',
-                color: 'var(--text)',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
               }}>
-                {scan.repairName}
+                <span style={{
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: 'var(--text)',
+                }}>
+                  {scan.repairName}
+                </span>
+                {scan.partner && (
+                  <span style={{
+                    fontSize: '12px',
+                    color: 'var(--text-secondary)',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    • {scan.partner}
+                  </span>
+                )}
               </div>
               <div style={{
                 fontSize: '11px',
                 color: 'var(--text-muted)',
-                marginTop: '2px'
+                marginTop: '2px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
               }}>
-                {scanHistory.formatTime(scan.timestamp)}
+                {scan.product || 'Sin equipo'} • {scanHistory.formatTime(scan.timestamp)}
               </div>
             </div>
 

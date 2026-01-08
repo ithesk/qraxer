@@ -22,6 +22,8 @@ export const scanHistory = {
    * @param {number} scan.repairId - Repair ID
    * @param {string} scan.repairName - Repair name/code
    * @param {string} scan.currentState - Current state at scan time
+   * @param {string} scan.partner - Client name
+   * @param {string} scan.product - Equipment/product name
    * @param {string} scan.timestamp - ISO timestamp
    */
   addScan(scan) {
@@ -32,6 +34,8 @@ export const scanHistory = {
         repairId: scan.repairId,
         repairName: scan.repairName || `#${scan.repairId}`,
         currentState: scan.currentState,
+        partner: scan.partner || null,
+        product: scan.product || null,
         timestamp: scan.timestamp || new Date().toISOString(),
       };
 

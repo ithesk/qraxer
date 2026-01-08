@@ -606,6 +606,45 @@ export default function History({ initialSelectedRepairId = null }) {
               </div>
             </div>
 
+            {/* Contraseña del equipo */}
+            {selectedRepair.passcode && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: '500' }}>
+                  CONTRASEÑA DEL EQUIPO
+                </div>
+                <div style={{
+                  padding: '12px 14px',
+                  background: 'var(--border-light)',
+                  borderRadius: 'var(--radius-md)',
+                  fontSize: '18px',
+                  fontWeight: '600',
+                  fontFamily: 'monospace',
+                  letterSpacing: '2px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                  <span>{selectedRepair.passcode}</span>
+                  <button
+                    onClick={() => {
+                      copyToClipboard(selectedRepair.passcode);
+                      haptics.success();
+                      toast.success('Contraseña copiada');
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: '4px 8px',
+                      cursor: 'pointer',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <CopyIcon />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Problemas */}
             {(() => {
               const problems = extractProblems(selectedRepair.description);
