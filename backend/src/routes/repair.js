@@ -69,6 +69,7 @@ router.post('/scan', async (req, res, next) => {
         product: repair.product_id ? repair.product_id[1] : null,
         partner: repair.partner_id ? repair.partner_id[1] : null,
         description: repair.description || '',
+        passcode: repair.passcode || null,
       },
       availableStates: states,
     });
@@ -523,6 +524,7 @@ router.get('/recent', async (req, res, next) => {
         assignedUser: r.user_id ? r.user_id[1] : null,
         description: r.description || '',
         createdAt: r.create_date,
+        passcode: r.passcode || null,
       })),
     });
   } catch (error) {
@@ -1066,6 +1068,7 @@ router.get('/:code', async (req, res, next) => {
         product: repair.product_id ? repair.product_id[1] : null,
         partner: repair.partner_id ? repair.partner_id[1] : null,
         description: repair.description || '',
+        passcode: repair.passcode || null,
       },
       availableStates: states,
     });

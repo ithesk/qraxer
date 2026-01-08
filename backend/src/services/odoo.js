@@ -223,7 +223,7 @@ class OdooClient {
     const repairs = await this.execute('repair.order', 'search_read', [
       [['name', '=', code]],
     ], {
-      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'user_id', 'description'],
+      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'user_id', 'description', 'passcode'],
       limit: 1,
     }, userId);
 
@@ -245,7 +245,7 @@ class OdooClient {
     const repairs = await this.execute('repair.order', 'search_read', [
       [['id', '=', repairId]],
     ], {
-      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'description'],
+      fields: ['id', 'name', 'state', 'product_id', 'partner_id', 'description', 'passcode'],
       limit: 1,
     }, userId);
 
@@ -638,7 +638,7 @@ class OdooClient {
     const repairs = await this.execute('repair.order', 'search_read', [
       [['create_date', '>=', dateStr]],
     ], {
-      fields: ['id', 'name', 'state', 'partner_id', 'product_id', 'description', 'create_date', 'user_id'],
+      fields: ['id', 'name', 'state', 'partner_id', 'product_id', 'description', 'create_date', 'user_id', 'passcode'],
       order: 'create_date desc',
       limit: 50,
     }, userId);
