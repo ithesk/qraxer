@@ -200,18 +200,20 @@ class QueueProcessor {
   async processQueue() {
     if (this.isProcessing) {
       console.log('[QueueProcessor] Already processing, skipping');
-      return;
+      return { synced: 0, failed: 0, skipped: 0 };
     }
 
     // Verificar conexión primero
     const isOnline = await api.isOnline();
     if (!isOnline) {
       console.log('[QueueProcessor] Offline, skipping queue processing');
-      return;
+      return { synced: 0, failed: 0, skipped: 0 };
     }
 
     this.isProcessing = true;
     console.log('[QueueProcessor] Starting queue processing...');
+
+    const stats = { synced: 0, failed: 0, skipped: 0 };
 
     try {
       const pendingOrders = await orderQueue.getPendingOrders();
@@ -225,7 +227,14 @@ class QueueProcessor {
           break;
         }
 
-        await this.syncOrder(order);
+        const result = await this.syncOrder(order);
+        if (result.success) {
+          stats.synced++;
+        } else if (result.skipped) {
+          stats.skipped++;
+        } else {
+          stats.failed++;
+        }
 
         // Pequeña pausa entre órdenes para no saturar
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -233,8 +242,10 @@ class QueueProcessor {
 
     } finally {
       this.isProcessing = false;
-      console.log('[QueueProcessor] Queue processing completed');
+      console.log('[QueueProcessor] Queue processing completed:', stats);
     }
+
+    return stats;
   }
 
   /**

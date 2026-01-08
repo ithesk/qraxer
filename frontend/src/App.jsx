@@ -221,9 +221,11 @@ export default function App() {
           if (isOnline) {
             console.log('[APP] Online, checking pending orders...');
             queueProcessor.processQueue().then(result => {
-              if (result.synced > 0) {
+              if (result?.synced > 0) {
                 console.log('[APP] Synced', result.synced, 'pending orders');
               }
+            }).catch(e => {
+              console.warn('[APP] Error processing queue:', e);
             });
           }
         } catch (e) {
