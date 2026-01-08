@@ -67,6 +67,14 @@ const LogIcon = () => (
   </svg>
 );
 
+const ErrorIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
 const TrashIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
     <polyline points="3 6 5 6 21 6" />
@@ -83,6 +91,8 @@ export default function SettingsScreen({ onBack }) {
   const [notificationsSupported] = useState(localNotificationsService.isSupported());
   const [logs, setLogs] = useState([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [errors, setErrors] = useState([]);
+  const [showErrors, setShowErrors] = useState(false);
 
   // Load pending notifications
   useEffect(() => {
@@ -109,6 +119,27 @@ export default function SettingsScreen({ onBack }) {
   const handleShowLogs = () => {
     loadLogs();
     setShowLogs(true);
+  };
+
+  // Load JS errors
+  const loadErrors = () => {
+    try {
+      const stored = localStorage.getItem('qraxer_errors');
+      setErrors(stored ? JSON.parse(stored) : []);
+    } catch (e) {
+      setErrors([]);
+    }
+  };
+
+  const handleClearErrors = () => {
+    localStorage.removeItem('qraxer_errors');
+    setErrors([]);
+    toast.success('Errores limpiados');
+  };
+
+  const handleShowErrors = () => {
+    loadErrors();
+    setShowErrors(true);
   };
 
   // Test notification
@@ -344,6 +375,23 @@ export default function SettingsScreen({ onBack }) {
             </div>
             <ChevronIcon />
           </button>
+
+          <button
+            className="settings-item"
+            onClick={handleShowErrors}
+            style={{ marginTop: '8px' }}
+          >
+            <div className="settings-item-icon" style={{ color: '#ef4444' }}>
+              <ErrorIcon />
+            </div>
+            <div className="settings-item-content">
+              <div className="settings-item-label">Ver errores de JavaScript</div>
+              <div className="settings-item-value">
+                Errores capturados en runtime
+              </div>
+            </div>
+            <ChevronIcon />
+          </button>
         </div>
       </div>
 
@@ -432,6 +480,109 @@ export default function SettingsScreen({ onBack }) {
                           wordBreak: 'break-all',
                         }}>
                           {JSON.stringify(log.data, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JS Errors Modal */}
+      {showErrors && (
+        <div className="settings-modal-backdrop" onClick={() => setShowErrors(false)}>
+          <div className="settings-picker" onClick={(e) => e.stopPropagation()} style={{ maxHeight: '80vh' }}>
+            <div className="settings-picker-header">
+              <span className="settings-picker-title">Errores de JavaScript</span>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  onClick={handleClearErrors}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <TrashIcon /> Limpiar
+                </button>
+                <button
+                  className="settings-picker-close"
+                  onClick={() => setShowErrors(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+            <div style={{
+              padding: '12px',
+              overflowY: 'auto',
+              maxHeight: 'calc(80vh - 60px)',
+            }}>
+              {errors.length === 0 ? (
+                <div style={{
+                  textAlign: 'center',
+                  color: 'var(--text-muted)',
+                  padding: '40px 20px',
+                }}>
+                  No hay errores registrados
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {errors.map((err, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        padding: '10px 12px',
+                        background: '#fef2f2',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        border: '1px solid #fecaca',
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        marginBottom: '4px',
+                      }}>
+                        <span style={{ fontWeight: '600', color: '#dc2626' }}>
+                          {err.message || 'Error desconocido'}
+                        </span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                          {err.time ? new Date(err.time).toLocaleString() : ''}
+                        </span>
+                      </div>
+                      {err.source && (
+                        <div style={{ color: '#991b1b', marginBottom: '4px', fontSize: '10px' }}>
+                          {err.source}:{err.lineno}:{err.colno}
+                        </div>
+                      )}
+                      {err.reason && (
+                        <div style={{ color: '#991b1b', marginBottom: '4px' }}>
+                          Reason: {err.reason}
+                        </div>
+                      )}
+                      {err.stack && (
+                        <pre style={{
+                          margin: 0,
+                          padding: '6px 8px',
+                          background: '#fee2e2',
+                          borderRadius: '4px',
+                          fontSize: '9px',
+                          color: '#7f1d1d',
+                          whiteSpace: 'pre-wrap',
+                          wordBreak: 'break-all',
+                          maxHeight: '100px',
+                          overflow: 'auto',
+                        }}>
+                          {err.stack}
                         </pre>
                       )}
                     </div>
