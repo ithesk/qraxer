@@ -204,8 +204,35 @@ const localNotificationsService = {
     const listener = LocalNotifications.addListener(
       'localNotificationActionPerformed',
       (notification) => {
-        console.log('[LocalNotifications] Action performed:', notification);
+        console.log('[LocalNotifications] 👆 Action performed:');
+        console.log('[LocalNotifications] 👆 ID:', notification.notification?.id);
+        console.log('[LocalNotifications] 👆 Title:', notification.notification?.title);
+        console.log('[LocalNotifications] 👆 Body:', notification.notification?.body);
+        console.log('[LocalNotifications] 👆 Extra:', JSON.stringify(notification.notification?.extra));
+        console.log('[LocalNotifications] 👆 Timestamp:', new Date().toISOString());
         callback(notification);
+      }
+    );
+
+    return () => listener.remove();
+  },
+
+  /**
+   * Agrega listener para notificaciones locales recibidas (foreground)
+   */
+  addReceivedListener(callback) {
+    if (!this.isSupported()) return () => {};
+
+    const listener = LocalNotifications.addListener(
+      'localNotificationReceived',
+      (notification) => {
+        console.log('[LocalNotifications] 📬 LOCAL Notification received (foreground):');
+        console.log('[LocalNotifications] 📬 ID:', notification.id);
+        console.log('[LocalNotifications] 📬 Title:', notification.title);
+        console.log('[LocalNotifications] 📬 Body:', notification.body);
+        console.log('[LocalNotifications] 📬 Extra:', JSON.stringify(notification.extra));
+        console.log('[LocalNotifications] 📬 Timestamp:', new Date().toISOString());
+        if (callback) callback(notification);
       }
     );
 

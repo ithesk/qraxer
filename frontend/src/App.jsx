@@ -279,6 +279,21 @@ export default function App() {
     };
   }, []);
 
+  // Listener para notificaciones LOCALES recibidas (para debug)
+  useEffect(() => {
+    if (!localNotificationsService.isSupported()) return;
+
+    const removeListener = localNotificationsService.addReceivedListener((notification) => {
+      console.log('[APP] 📬 LOCAL notification recibida:', notification);
+      // Mostrar toast para ver de dónde viene
+      toast.show(`🔔 Local: ${notification.title || 'Sin título'}`, 'info', 5000);
+    });
+
+    return () => {
+      if (removeListener) removeListener();
+    };
+  }, []);
+
   // Persist active tab
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
